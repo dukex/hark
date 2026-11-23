@@ -51,7 +51,7 @@ func (f *fakeGitHub) set(path, body string) {
 func (f *fakeGitHub) watcher() *Watcher {
 	w := New(f.URL, "secret")
 	w.me = "dukex"
-	w.since = start
+	w.started, w.since = start, start
 	w.Now = func() time.Time { return start.Add(time.Hour) }
 	return w
 }
@@ -179,6 +179,7 @@ func TestFailuresBecomeErrorEvents(t *testing.T) {
 	}
 	for name, routes := range cases {
 		t.Run(name, func(t *testing.T) {
+			routes["/users/dukex/events"] = `[]`
 			f := newFake(t, routes)
 			events := f.watcher().poll(context.Background())
 			if len(events) != 1 || events[0].Kind != "error" {
@@ -191,8 +192,9 @@ func TestFailuresBecomeErrorEvents(t *testing.T) {
 func TestUnreachableAPIBecomesErrorEvent(t *testing.T) {
 	for _, api := range []string{"http://127.0.0.1:1", "http://bad host"} {
 		w := New(api, "secret")
-		if events := w.poll(context.Background()); len(events) != 1 || events[0].Kind != "error" {
-			t.Fatalf("%s: want one error event, got %v", api, lines(events))
+		events := w.poll(context.Background())
+		if len(events) != 2 || events[0].Kind != "error" || events[1].Kind != "error" {
+			t.Fatalf("%s: want an error event per source, got %v", api, lines(events))
 		}
 	}
 }
@@ -248,4 +250,39 @@ func TestCloseFromBeforeStartIsIgnored(t *testing.T) {
 
 	assertLines(t, f.watcher().poll(context.Background()),
 		`2026-11-23T10:07:00Z github issue.updated dukex/foo#3 "author" u`)
+}
+
+func activity(id, typ, action, created, payload string) string {
+	return `{"id":"` + id + `","type":"` + typ + `","created_at":"` + created + `","actor":{"login":"dukex"},
+		"repo":{"name":"dukex/foo"},"payload":{"action":"` + action + `",` + payload + `}}`
+}
+
+func TestMyOwnActions(t *testing.T) {
+	routes := baseRoutes()
+	routes["/users/dukex/events"] = `[` +
+		activity("105", "IssuesEvent", "closed", "2026-11-23T10:05:00Z", `"issue":{"number":3,"title":"bug","html_url":"https://github.com/dukex/foo/issues/3"}`) + `,` +
+		activity("104", "PullRequestEvent", "closed", "2026-11-23T10:04:00Z", `"pull_request":{"number":11,"merged":false,"title":"wip","html_url":"https://github.com/dukex/foo/pull/11"}`) + `,` +
+		activity("103", "PullRequestEvent", "closed", "2026-11-23T10:03:00Z", `"pull_request":{"number":12,"merged":true,"title":"feat","html_url":"https://github.com/dukex/foo/pull/12"}`) + `,` +
+		activity("102", "PullRequestEvent", "opened", "2026-11-23T10:02:00Z", `"pull_request":{"number":12,"title":"feat","html_url":"https://github.com/dukex/foo/pull/12"}`) + `,` +
+		activity("101", "PushEvent", "", "2026-11-23T10:01:00Z", `"ref":"main"`) + `,` +
+		activity("100", "PullRequestEvent", "opened", "2026-11-23T09:00:00Z", `"pull_request":{"number":10,"title":"old","html_url":"x"}`) + `]`
+	f := newFake(t, routes)
+	w := f.watcher()
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T10:02:00Z github pr.opened dukex/foo#12 @dukex "feat" https://github.com/dukex/foo/pull/12`,
+		`2026-11-23T10:03:00Z github pr.merged dukex/foo#12 @dukex "feat" https://github.com/dukex/foo/pull/12`,
+		`2026-11-23T10:04:00Z github pr.closed dukex/foo#11 @dukex "wip" https://github.com/dukex/foo/pull/11`,
+		`2026-11-23T10:05:00Z github issue.closed dukex/foo#3 @dukex "bug" https://github.com/dukex/foo/issues/3`)
+	assertLines(t, w.poll(context.Background()))
+}
+
+func TestOwnEventsUnavailableBecomesErrorEvent(t *testing.T) {
+	routes := baseRoutes()
+	delete(routes, "/users/dukex/events")
+	f := newFake(t, routes)
+	events := f.watcher().poll(context.Background())
+	if len(events) != 1 || events[0].Kind != "error" {
+		t.Fatalf("want one error event, got %v", lines(events))
+	}
 }

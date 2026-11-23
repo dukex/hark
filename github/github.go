@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,9 +22,11 @@ type Watcher struct {
 	Interval time.Duration
 	Now      func() time.Time
 
-	me    string
-	since time.Time
-	seen  map[string]time.Time
+	me        string
+	started   time.Time
+	since     time.Time
+	seen      map[string]time.Time
+	lastEvent int64
 }
 
 func New(api, token string) *Watcher {
@@ -77,7 +80,8 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 	if err := w.get(ctx, w.API+"/user", &me); err != nil {
 		return err
 	}
-	w.me, w.since = me.Login, w.Now()
+	w.me, w.started = me.Login, w.Now()
+	w.since = w.started
 	for {
 		for _, e := range w.poll(ctx) {
 			emit(e)
@@ -90,9 +94,34 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 	}
 }
 
+type item struct {
+	Number  int    `json:"number"`
+	Title   string `json:"title"`
+	HTMLURL string `json:"html_url"`
+	Merged  bool   `json:"merged"`
+}
+
+type ownEvent struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	CreatedAt time.Time `json:"created_at"`
+	Repo      struct {
+		Name string `json:"name"`
+	} `json:"repo"`
+	Payload struct {
+		Action      string `json:"action"`
+		PullRequest item   `json:"pull_request"`
+		Issue       item   `json:"issue"`
+	} `json:"payload"`
+}
+
 var kinds = map[string]string{"Issue": "issue", "PullRequest": "pr"}
 
 func (w *Watcher) poll(ctx context.Context) []hark.Event {
+	return append(w.notifications(ctx), w.ownEvents(ctx)...)
+}
+
+func (w *Watcher) notifications(ctx context.Context) []hark.Event {
 	polledAt := w.Now()
 	var threads []notification
 	q := url.Values{"all": {"true"}, "since": {w.since.Add(-overlap).Format(time.RFC3339)}}
@@ -104,6 +133,41 @@ func (w *Watcher) poll(ctx context.Context) []hark.Event {
 		events = append(events, w.thread(ctx, threads[i])...)
 	}
 	w.since = polledAt
+	return events
+}
+
+func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
+	var list []ownEvent
+	if err := w.get(ctx, w.API+"/users/"+w.me+"/events", &list); err != nil {
+		return []hark.Event{w.failure(err)}
+	}
+	var events []hark.Event
+	for i := len(list) - 1; i >= 0; i-- {
+		o := list[i]
+		id, _ := strconv.ParseInt(o.ID, 10, 64)
+		if id <= w.lastEvent || o.CreatedAt.Before(w.started) {
+			continue
+		}
+		w.lastEvent = id
+		p := o.Payload
+		kind, it := "", p.PullRequest
+		switch {
+		case o.Type == "PullRequestEvent" && p.Action == "opened":
+			kind = "pr.opened"
+		case o.Type == "PullRequestEvent" && p.Action == "closed" && it.Merged:
+			kind = "pr.merged"
+		case o.Type == "PullRequestEvent" && p.Action == "closed":
+			kind = "pr.closed"
+		case o.Type == "IssuesEvent" && p.Action == "closed":
+			kind, it = "issue.closed", p.Issue
+		default:
+			continue
+		}
+		events = append(events, hark.Event{
+			Time: o.CreatedAt, Provider: "github", Kind: kind, Repo: o.Repo.Name,
+			Number: it.Number, Actor: w.me, Text: it.Title, URL: it.HTMLURL,
+		})
+	}
 	return events
 }
 

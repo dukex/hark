@@ -19,6 +19,10 @@ It downloads the latest release for your OS and architecture (Linux or macOS, am
 
 With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 
+### Updates
+
+On every start, a released hark checks the latest GitHub release. When it is newer, hark downloads it, verifies the checksum, replaces its own binary and restarts with the same arguments, printing `hark: updated 0.1.0 to v0.2.0, restarting` on stderr. If the check fails, hark warns and keeps running the version it has. Set `HARK_NO_UPDATE=1` to turn it off. Builds from source (`go install`, `go build`) never update themselves.
+
 ## Use it from Claude Code or another agent
 
 Paste this prompt into the session:

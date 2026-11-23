@@ -14,9 +14,17 @@ import (
 
 	"github.com/dukex/hark"
 	"github.com/dukex/hark/github"
+	"github.com/dukex/hark/update"
 )
 
 var (
+	version    = "dev"
+	releases   = "https://github.com/dukex/hark/releases"
+	restart    = syscall.Exec
+	executable = os.Executable
+	runUpdate  = func(ctx context.Context, exe, current string) (string, error) {
+		return update.Updater{Releases: releases, Executable: exe}.Run(ctx, current)
+	}
 	exit    = os.Exit
 	ghToken = func() (string, error) {
 		out, err := exec.Command("gh", "auth", "token").Output()
@@ -56,6 +64,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		_, _ = fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 		return 2
 	}
+	autoUpdate(ctx, args, getenv, stderr)
 	p, err := providers[args[0]](getenv)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "hark:", err)
@@ -66,4 +75,25 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return 1
 	}
 	return 0
+}
+
+func autoUpdate(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) {
+	if version == "dev" || getenv("HARK_NO_UPDATE") != "" {
+		return
+	}
+	exe, err := executable()
+	tag := ""
+	if err == nil {
+		tag, err = runUpdate(ctx, exe, version)
+	}
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "hark: update failed:", err)
+		return
+	}
+	if tag == "" {
+		return
+	}
+	_, _ = fmt.Fprintf(stderr, "hark: updated %s to %s, restarting\n", version, tag)
+	err = restart(exe, append([]string{exe}, args...), os.Environ())
+	_, _ = fmt.Fprintln(stderr, "hark: restart failed:", err)
 }

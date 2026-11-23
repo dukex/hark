@@ -202,6 +202,9 @@ func ci(n notification) hark.Event {
 
 func (w *Watcher) discussion(ctx context.Context, n notification, kind string) ([]hark.Event, error) {
 	prev := n.LastReadAt
+	if floor := w.started.Add(-backlog); prev.Before(floor) {
+		prev = floor
+	}
 	var s subject
 	if err := w.do(ctx, http.MethodGet, n.Subject.URL, &s); err != nil {
 		return nil, err

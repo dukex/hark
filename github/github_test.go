@@ -385,3 +385,14 @@ func TestCINotifications(t *testing.T) {
 		t.Errorf("marked %v", f.marked)
 	}
 }
+
+func TestNeverReadThreadIgnoresActivityBeforeTheWindow(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "review_requested", "PullRequest", "/repos/acme/lib/pulls/126", "/repos/acme/lib/issues/comments/5", "2026-11-23T10:05:00Z") + `]`
+	routes["/repos/acme/lib/pulls/126"] = `{"number":126,"state":"closed","merged":true,"merged_by":{"login":"erin"},"user":{"login":"erin"},"closed_at":"2026-11-04T19:51:38Z","html_url":"https://github.com/acme/lib/pull/126"}`
+	routes["/repos/acme/lib/issues/comments/5"] = `{"user":{"login":"frank"},"body":"velho","created_at":"2026-11-04T19:00:00Z","html_url":"c5"}`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:05:00Z github pr.updated acme/lib#126 watching "review_requested" https://github.com/acme/lib/pull/126`)
+}

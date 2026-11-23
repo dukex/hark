@@ -112,7 +112,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	}
 	if len(args) == 1 && args[0] == "doctor" {
 		return doctor(ctx, getenv, stdout)
-  }
+	}
 	if len(args) == 1 && args[0] == "update" {
 		return selfUpdate(ctx, stdout, stderr)
 	}
@@ -182,6 +182,7 @@ func doctor(ctx context.Context, getenv func(string) string, stdout io.Writer) i
 	if failed {
 		return 1
 	}
+	return 0
 }
 
 func install(ctx context.Context, current string) (exe, tag string, err error) {

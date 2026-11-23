@@ -112,7 +112,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	}
 	if len(args) == 1 && args[0] == "doctor" {
 		return doctor(ctx, getenv, stdout)
-  }
+	}
 	if len(args) == 1 && args[0] == "update" {
 		return selfUpdate(ctx, stdout, stderr)
 	}
@@ -126,7 +126,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
 	}
-	if err := p.Watch(ctx, func(e hark.Event) { _, _ = fmt.Fprintln(stdout, e) }); err != nil {
+	if err := p.Watch(ctx, onceUntilRecovered(func(e hark.Event) { _, _ = fmt.Fprintln(stdout, e) })); err != nil {
 		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
 	}
@@ -182,6 +182,7 @@ func doctor(ctx context.Context, getenv func(string) string, stdout io.Writer) i
 	if failed {
 		return 1
 	}
+	return 0
 }
 
 func install(ctx context.Context, current string) (exe, tag string, err error) {
@@ -205,4 +206,17 @@ func selfUpdate(ctx context.Context, stdout, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "hark updated %s to %s\n", current, tag)
 	return 0
+}
+
+func onceUntilRecovered(emit func(hark.Event)) func(hark.Event) {
+	failing := map[string]bool{}
+	return func(e hark.Event) {
+		if e.Kind != "error" {
+			clear(failing)
+		} else if failing[e.Text] {
+			return
+		}
+		failing[e.Text] = e.Kind == "error"
+		emit(e)
+	}
 }

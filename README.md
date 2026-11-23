@@ -76,7 +76,8 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
    - `ci.approval_requested`: someone is waiting for me to approve a deploy. Tell me.
    - `ci.succeeded`, `ci.cancelled`, `ci.skipped`: stay quiet unless I am
      waiting for that workflow.
-   - `error`: hark keeps retrying. Tell me only if it repeats.
+   - `error`: hark keeps retrying and prints a repeated error only once. Tell me
+     what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
    `hark jira 2>&1`, described as "Jira activity on my issues":
@@ -117,7 +118,7 @@ Known limits:
 | `issue.updated`, `pr.updated` | other thread activity, with the notification reason as text |
 | `ci.failed`, `ci.succeeded`, `ci.cancelled`, `ci.skipped` | a workflow run you get notified about finished; the text is GitHub's title, with workflow and branch |
 | `ci.approval_requested` | someone asked you to approve a deployment |
-| `error` | a request failed; hark keeps polling |
+| `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
 
 ## Jira
 
@@ -131,7 +132,7 @@ Like Todoist, it keeps its cursor in `~/.local/state/hark/jira.json` and the fir
 | `jira.mentioned` | a comment @mentions you |
 | `jira.transitioned` | the status changes, for example `In Progress to Done` |
 | `jira.assigned` | someone assigns the issue to you |
-| `error` | a request failed; hark keeps polling |
+| `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
 
 Mentions on issues you don't follow are not reported.
 
@@ -148,7 +149,7 @@ hark keeps its cursor in `~/.local/state/hark/todoist.json` (or `$XDG_STATE_HOME
 | `task.rescheduled` | a task's due date changes; the text ends with the new date, or `removed` |
 | `task.commented` | someone comments on a task |
 | `task.due` | once a day, for each task due today |
-| `error` | a request failed; hark keeps polling |
+| `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
 
 ## Adding a provider
 

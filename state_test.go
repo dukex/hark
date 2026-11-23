@@ -74,3 +74,13 @@ func TestStateErrors(t *testing.T) {
 		t.Error("saving in a read-only directory should fail")
 	}
 }
+
+func TestCheckState(t *testing.T) {
+	dir := t.TempDir()
+	if c := CheckState(filepath.Join(dir, "missing.json")); c.Name != "state" || c.Err != nil || c.Detail != filepath.Join(dir, "missing.json") {
+		t.Errorf("missing file: %+v", c)
+	}
+	if c := CheckState(dir); c.Err == nil {
+		t.Errorf("directory as state: %+v", c)
+	}
+}

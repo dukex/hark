@@ -21,6 +21,24 @@ With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 
 `hark --version` (or `-v`) prints the installed version.
 
+### Checking the setup
+
+`hark doctor` checks every provider and exits with 1 if a configured one is broken:
+
+```
+hark 0.8.0
+github
+  ✓ token: logged in as you
+  ✓ notifications: readable
+jira
+  - not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN (...)
+todoist
+  ✓ token: valid
+  ✗ activity log: GET /api/v1/activities: 403 Forbidden
+```
+
+Providers that are not configured are listed but don't fail the check.
+
 ### Updates
 
 On every start, a released hark checks the latest GitHub release. When it is newer, hark downloads it, verifies the checksum, replaces its own binary and restarts with the same arguments, printing `hark: updated 0.1.0 to v0.2.0, restarting` on stderr. If the check fails, hark warns and keeps running the version it has. Set `HARK_NO_UPDATE=1` to turn it off. Builds from source (`go install`, `go build`) never update themselves.
@@ -34,7 +52,9 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
-2. Start a background monitor running `hark github 2>&1`, described as
+2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start
+   monitors for providers whose checks all pass.
+   Start a background monitor running `hark github 2>&1`, described as
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
    When it expires, start it again. If your tool has no monitor, run it in
    the background and read its output every few minutes.
@@ -56,12 +76,12 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
      waiting for that workflow.
    - `error`: hark keeps retrying. Tell me only if it repeats.
    - A line starting with `hark:` means hark stopped. Show it to me.
-4. If `JIRA_API_TOKEN` is set, start another monitor the same way with
+4. If doctor shows jira working, start another monitor the same way with
    `hark jira 2>&1`, described as "Jira activity on my issues":
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
-   If `TODOIST_API_TOKEN` is set, start one more with `hark todoist 2>&1`,
+   If doctor shows todoist working, start one more with `hark todoist 2>&1`,
    described as "Todoist activity":
    - `task.due`: remind me of what is due today, once.
    - `task.commented`: tell me what the comment says.
@@ -130,10 +150,11 @@ hark keeps its cursor in `~/.local/state/hark/todoist.json` (or `$XDG_STATE_HOME
 
 ## Adding a provider
 
-Implement `hark.Provider` and register a constructor in `providers` in `cmd/hark/main.go`:
+Implement `hark.Provider` and register a constructor in `providers` in `cmd/hark/main.go`. The constructor returns an error wrapping `errNotConfigured` when credentials are missing, so `hark doctor` can tell "not configured" from "broken".
 
 ```go
 type Provider interface {
 	Watch(ctx context.Context, emit func(Event)) error
+	Doctor(ctx context.Context) []Check
 }
 ```

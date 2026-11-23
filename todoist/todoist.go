@@ -197,3 +197,20 @@ func (w *Watcher) get(ctx context.Context, path string, v any) error {
 	}
 	return json.NewDecoder(res.Body).Decode(v)
 }
+
+func (w *Watcher) Doctor(ctx context.Context) []hark.Check {
+	var tasks struct {
+		Results []task `json:"results"`
+	}
+	if err := w.get(ctx, "/tasks/filter?query=today&limit=1", &tasks); err != nil {
+		return []hark.Check{{Name: "token", Err: err}}
+	}
+	var activity struct {
+		Results []activity `json:"results"`
+	}
+	return []hark.Check{
+		{Name: "token", Detail: "valid"},
+		{Name: "activity log", Detail: "readable", Err: w.get(ctx, "/activities?limit=1", &activity)},
+		hark.CheckState(w.State),
+	}
+}

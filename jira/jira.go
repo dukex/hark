@@ -259,3 +259,19 @@ func (w *Watcher) get(ctx context.Context, path string, v any) error {
 	}
 	return json.NewDecoder(res.Body).Decode(v)
 }
+
+func (w *Watcher) Doctor(ctx context.Context) []hark.Check {
+	var me user
+	if err := w.get(ctx, "/rest/api/3/myself", &me); err != nil {
+		return []hark.Check{{Name: "login", Err: err}}
+	}
+	var page struct {
+		Issues []issue `json:"issues"`
+	}
+	q := url.Values{"jql": {follows + " ORDER BY updated DESC"}, "fields": {"summary"}, "maxResults": {"1"}}
+	return []hark.Check{
+		{Name: "login", Detail: "logged in as " + me.DisplayName},
+		{Name: "search", Detail: "issues you follow are searchable", Err: w.get(ctx, "/rest/api/3/search/jql?"+q.Encode(), &page)},
+		hark.CheckState(w.State),
+	}
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -37,6 +38,8 @@ var (
 	}
 )
 
+var errNotConfigured = errors.New("not configured")
+
 var providers = map[string]func(getenv func(string) string) (hark.Provider, error){
 	"github":  newGitHub,
 	"jira":    newJira,
@@ -48,7 +51,7 @@ func newGitHub(getenv func(string) string) (hark.Provider, error) {
 	if token == "" {
 		t, err := ghToken()
 		if err != nil {
-			return nil, fmt.Errorf("set GITHUB_TOKEN or log in with gh: %w", err)
+			return nil, fmt.Errorf("%w: set GITHUB_TOKEN or log in with gh: %w", errNotConfigured, err)
 		}
 		token = t
 	}
@@ -62,7 +65,7 @@ func newGitHub(getenv func(string) string) (hark.Provider, error) {
 func newTodoist(getenv func(string) string) (hark.Provider, error) {
 	token := getenv("TODOIST_API_TOKEN")
 	if token == "" {
-		return nil, fmt.Errorf("set TODOIST_API_TOKEN to a token from Todoist settings, Integrations, Developer")
+		return nil, fmt.Errorf("%w: set TODOIST_API_TOKEN to a token from Todoist settings, Integrations, Developer", errNotConfigured)
 	}
 	state, err := hark.StatePath("todoist")
 	if err != nil {
@@ -79,7 +82,7 @@ func newJira(getenv func(string) string) (hark.Provider, error) {
 		}
 	}
 	if len(missing) > 0 {
-		return nil, fmt.Errorf("set %s (the token comes from id.atlassian.com, Security, API tokens)", strings.Join(missing, ", "))
+		return nil, fmt.Errorf("%w: set %s (the token comes from id.atlassian.com, Security, API tokens)", errNotConfigured, strings.Join(missing, ", "))
 	}
 	state, err := hark.StatePath("jira")
 	if err != nil {
@@ -106,6 +109,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	if len(args) == 1 && slices.Contains([]string{"--version", "-v", "version"}, args[0]) {
 		_, _ = fmt.Fprintln(stdout, "hark", displayVersion())
 		return 0
+	}
+	if len(args) == 1 && args[0] == "doctor" {
+		return doctor(ctx, getenv, stdout)
 	}
 	if len(args) != 1 || providers[args[0]] == nil {
 		_, _ = fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
@@ -143,4 +149,39 @@ func autoUpdate(ctx context.Context, args []string, getenv func(string) string, 
 	_, _ = fmt.Fprintf(stderr, "hark: updated %s to %s, restarting\n", version, tag)
 	err = restart(exe, append([]string{exe}, args...), os.Environ())
 	_, _ = fmt.Fprintln(stderr, "hark: restart failed:", err)
+}
+
+func doctor(ctx context.Context, getenv func(string) string, stdout io.Writer) int {
+	_, _ = fmt.Fprintln(stdout, "hark", displayVersion())
+	failed, configured := false, 0
+	for _, name := range slices.Sorted(maps.Keys(providers)) {
+		_, _ = fmt.Fprintln(stdout, name)
+		p, err := providers[name](getenv)
+		if errors.Is(err, errNotConfigured) {
+			_, _ = fmt.Fprintln(stdout, "  -", err)
+			continue
+		}
+		if err != nil {
+			_, _ = fmt.Fprintln(stdout, "  ✗ setup:", err)
+			failed = true
+			continue
+		}
+		configured++
+		for _, c := range p.Doctor(ctx) {
+			if c.Err != nil {
+				_, _ = fmt.Fprintf(stdout, "  ✗ %s: %v\n", c.Name, c.Err)
+				failed = true
+			} else {
+				_, _ = fmt.Fprintf(stdout, "  ✓ %s: %s\n", c.Name, c.Detail)
+			}
+		}
+	}
+	if configured == 0 {
+		_, _ = fmt.Fprintln(stdout, "no provider is configured")
+		failed = true
+	}
+	if failed {
+		return 1
+	}
+	return 0
 }

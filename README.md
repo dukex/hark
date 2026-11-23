@@ -47,6 +47,11 @@ Watch my GitHub activity with hark while we work.
      if they @mention me or touch what we are working on.
    - `*.updated`: other activity, the text is GitHub's reason (for example
      `review_requested`). Tell me about review requests.
+   - `ci.failed`: a workflow failed. Tell me which one and on which branch, and
+     offer to read the logs (`gh run list --repo <repo> --branch <branch>`).
+   - `ci.approval_requested`: someone is waiting for me to approve a deploy. Tell me.
+   - `ci.succeeded`, `ci.cancelled`, `ci.skipped`: stay quiet unless I am
+     waiting for that workflow.
    - `error`: hark keeps retrying. Tell me only if it repeats.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. Never reply, close or change anything on GitHub without asking me first.
@@ -61,7 +66,7 @@ GitHub has no per-user webhooks, so hark polls every minute:
 - `/notifications` for activity by others on issues and PRs you authored or watch. Threads authored by someone else are marked `watching`.
 - `/users/{you}/events` for your own actions, which GitHub never notifies you about.
 
-hark reads only unread notifications and marks each thread as read once it has printed it, so a restarted hark, or a second consumer, never sees the same notification twice. On startup it picks up unread notifications from the last hour, which covers the gap while a monitor is re-armed; older unread ones are left untouched. Threads hark does not report (releases, CI runs) stay unread. Opening a thread on github.com marks it as read too, so hark skips it.
+hark reads only unread notifications and marks each thread as read once it has printed it, so a restarted hark, or a second consumer, never sees the same notification twice. On startup it picks up unread notifications from the last hour, which covers the gap while a monitor is re-armed; older unread ones are left untouched. Threads hark does not report (releases, discussions) stay unread. Opening a thread on github.com marks it as read too, so hark skips it.
 
 Known limits:
 
@@ -74,6 +79,8 @@ Known limits:
 | `issue.closed`, `pr.closed`, `pr.merged` | someone, or you, closes or merges |
 | `pr.opened` | you open a PR |
 | `issue.updated`, `pr.updated` | other thread activity, with the notification reason as text |
+| `ci.failed`, `ci.succeeded`, `ci.cancelled`, `ci.skipped` | a workflow run you get notified about finished; the text is GitHub's title, with workflow and branch |
+| `ci.approval_requested` | someone asked you to approve a deployment |
 | `error` | a request failed; hark keeps polling |
 
 ## Adding a provider

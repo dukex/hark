@@ -27,6 +27,11 @@ func TestEventString(t *testing.T) {
 			want:  `2026-11-23T13:02:11Z github issue.closed a/b#3 @bob watching u`,
 		},
 		{
+			name:  "repo without a number",
+			event: Event{Time: at, Provider: "github", Kind: "ci.failed", Repo: "a/b", Text: "CI failed"},
+			want:  `2026-11-23T13:02:11Z github ci.failed a/b "CI failed"`,
+		},
+		{
 			name:  "error event has no subject",
 			event: Event{Time: at, Provider: "github", Kind: "error", Text: "boom"},
 			want:  `2026-11-23T13:02:11Z github error "boom"`,

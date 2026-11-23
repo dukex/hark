@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +52,7 @@ type notification struct {
 	} `json:"repository"`
 	Subject struct {
 		Type             string `json:"type"`
+		Title            string `json:"title"`
 		URL              string `json:"url"`
 		LatestCommentURL string `json:"latest_comment_url"`
 	} `json:"subject"`
@@ -171,21 +173,45 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 }
 
 func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
-	kind, ok := kinds[n.Subject.Type]
-	if !ok {
+	var events []hark.Event
+	if kind, ok := kinds[n.Subject.Type]; ok {
+		var err error
+		if events, err = w.discussion(ctx, n, kind); err != nil {
+			return []hark.Event{w.failure(err)}
+		}
+	} else if n.Subject.Type == "CheckSuite" || n.Subject.Type == "WorkflowRun" {
+		events = []hark.Event{ci(n)}
+	} else {
 		return nil
 	}
+	if err := w.do(ctx, http.MethodPatch, w.API+"/notifications/threads/"+n.ID, nil); err != nil {
+		events = append(events, w.failure(err))
+	}
+	return events
+}
+
+var ciResult = regexp.MustCompile(` workflow run(?:, Attempt #\d+)? (\w+) for `)
+
+func ci(n notification) hark.Event {
+	e := hark.Event{Time: n.UpdatedAt, Provider: "github", Kind: "ci." + n.Reason, Repo: n.Repository.FullName, Text: n.Subject.Title}
+	if m := ciResult.FindStringSubmatch(n.Subject.Title); m != nil {
+		e.Kind = "ci." + m[1]
+	}
+	return e
+}
+
+func (w *Watcher) discussion(ctx context.Context, n notification, kind string) ([]hark.Event, error) {
 	prev := n.LastReadAt
 	var s subject
 	if err := w.do(ctx, http.MethodGet, n.Subject.URL, &s); err != nil {
-		return []hark.Event{w.failure(err)}
+		return nil, err
 	}
 	base := hark.Event{Provider: "github", Repo: n.Repository.FullName, Number: s.Number, Watching: s.User.Login != w.me}
 	var events []hark.Event
 	if strings.Contains(n.Subject.LatestCommentURL, "/comments/") {
 		var c comment
 		if err := w.do(ctx, http.MethodGet, n.Subject.LatestCommentURL, &c); err != nil {
-			return []hark.Event{w.failure(err)}
+			return nil, err
 		}
 		if c.CreatedAt.After(prev) {
 			e := base
@@ -206,10 +232,7 @@ func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
 		e.Time, e.Kind, e.Text, e.URL = n.UpdatedAt, kind+".updated", n.Reason, s.HTMLURL
 		events = append(events, e)
 	}
-	if err := w.do(ctx, http.MethodPatch, w.API+"/notifications/threads/"+n.ID, nil); err != nil {
-		events = append(events, w.failure(err))
-	}
-	return events
+	return events, nil
 }
 
 func (w *Watcher) failure(err error) hark.Event {

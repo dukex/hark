@@ -23,6 +23,8 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
       - run: shellcheck install.sh
       - id: version
+        env:
+          GOTOOLCHAIN: auto
         run: |
           go install github.com/caarlos0/svu/v3@v3.4.4
           current=$(svu current)

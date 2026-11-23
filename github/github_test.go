@@ -261,12 +261,16 @@ func activity(id, typ, action, created, payload string) string {
 func TestMyOwnActions(t *testing.T) {
 	routes := baseRoutes()
 	routes["/users/dukex/events"] = `[` +
-		activity("105", "IssuesEvent", "closed", "2026-11-23T10:05:00Z", `"issue":{"number":3,"title":"bug","html_url":"https://github.com/dukex/foo/issues/3"}`) + `,` +
-		activity("104", "PullRequestEvent", "closed", "2026-11-23T10:04:00Z", `"pull_request":{"number":11,"merged":false,"title":"wip","html_url":"https://github.com/dukex/foo/pull/11"}`) + `,` +
-		activity("103", "PullRequestEvent", "closed", "2026-11-23T10:03:00Z", `"pull_request":{"number":12,"merged":true,"title":"feat","html_url":"https://github.com/dukex/foo/pull/12"}`) + `,` +
-		activity("102", "PullRequestEvent", "opened", "2026-11-23T10:02:00Z", `"pull_request":{"number":12,"title":"feat","html_url":"https://github.com/dukex/foo/pull/12"}`) + `,` +
-		activity("101", "PushEvent", "", "2026-11-23T10:01:00Z", `"ref":"main"`) + `,` +
-		activity("100", "PullRequestEvent", "opened", "2026-11-23T09:00:00Z", `"pull_request":{"number":10,"title":"old","html_url":"x"}`) + `]`
+		activity("105", "IssuesEvent", "closed", "2026-11-23T10:05:00Z", `"issue":{"number":3,"url":"{{API}}/repos/dukex/foo/issues/3"}`) + `,` +
+		activity("104", "PullRequestEvent", "closed", "2026-11-23T10:04:00Z", `"number":11,"pull_request":{"number":11,"url":"{{API}}/repos/dukex/foo/pulls/11"}`) + `,` +
+		activity("103", "PullRequestEvent", "closed", "2026-11-23T10:03:00Z", `"number":12,"pull_request":{"number":12,"url":"{{API}}/repos/dukex/foo/pulls/12"}`) + `,` +
+		activity("102", "PullRequestEvent", "opened", "2026-11-23T10:02:00Z", `"number":12,"pull_request":{"number":12,"url":"{{API}}/repos/dukex/foo/pulls/12"}`) + `,` +
+		activity("101", "PullRequestEvent", "labeled", "2026-11-23T10:01:30Z", `"number":12,"pull_request":{"number":12,"url":"{{API}}/repos/dukex/foo/pulls/12"}`) + `,` +
+		activity("100", "PushEvent", "", "2026-11-23T10:01:00Z", `"ref":"main"`) + `,` +
+		activity("99", "PullRequestEvent", "opened", "2026-11-23T09:00:00Z", `"number":10,"pull_request":{"number":10,"url":"{{API}}/repos/dukex/foo/pulls/10"}`) + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"title":"bug","html_url":"https://github.com/dukex/foo/issues/3"}`
+	routes["/repos/dukex/foo/pulls/11"] = `{"number":11,"title":"wip","merged":false,"html_url":"https://github.com/dukex/foo/pull/11"}`
+	routes["/repos/dukex/foo/pulls/12"] = `{"number":12,"title":"feat","merged":true,"html_url":"https://github.com/dukex/foo/pull/12"}`
 	f := newFake(t, routes)
 	w := f.watcher()
 
@@ -276,6 +280,16 @@ func TestMyOwnActions(t *testing.T) {
 		`2026-11-23T10:04:00Z github pr.closed dukex/foo#11 @dukex "wip" https://github.com/dukex/foo/pull/11`,
 		`2026-11-23T10:05:00Z github issue.closed dukex/foo#3 @dukex "bug" https://github.com/dukex/foo/issues/3`)
 	assertLines(t, w.poll(context.Background()))
+}
+
+func TestOwnEventItemUnavailableBecomesErrorEvent(t *testing.T) {
+	routes := baseRoutes()
+	routes["/users/dukex/events"] = `[` + activity("1", "PullRequestEvent", "opened", "2026-11-23T10:02:00Z", `"pull_request":{"url":"{{API}}/repos/dukex/foo/pulls/404"}`) + `]`
+	f := newFake(t, routes)
+	events := f.watcher().poll(context.Background())
+	if len(events) != 1 || events[0].Kind != "error" {
+		t.Fatalf("want one error event, got %v", lines(events))
+	}
 }
 
 func TestOwnEventsUnavailableBecomesErrorEvent(t *testing.T) {

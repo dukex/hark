@@ -37,7 +37,8 @@ func TestHarkGitHubEndToEnd(t *testing.T) {
 		"/repos/acme/lib/pulls/40":           `{"number":40,"user":{"login":"erin"},"html_url":"https://github.com/acme/lib/pull/40"}`,
 		"/repos/acme/lib/issues/comments/70": `{"user":{"login":"frank"},"body":"rebase?","created_at":"SOON","html_url":"https://github.com/acme/lib/pull/40#issuecomment-70"}`,
 		"/users/dukex/events": `[{"id":"9","type":"PullRequestEvent","created_at":"SOON","repo":{"name":"dukex/foo"},
-			"payload":{"action":"opened","pull_request":{"number":12,"title":"feat: x","html_url":"https://github.com/dukex/foo/pull/12"}}}]`,
+			"payload":{"action":"opened","number":12,"pull_request":{"number":12,"url":"API/repos/dukex/foo/pulls/12"}}}]`,
+		"/repos/dukex/foo/pulls/12": `{"number":12,"title":"feat: x","html_url":"https://github.com/dukex/foo/pull/12"}`,
 	}
 	var api *httptest.Server
 	api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

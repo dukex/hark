@@ -60,6 +60,7 @@ type notification struct {
 
 type subject struct {
 	Number   int       `json:"number"`
+	Title    string    `json:"title"`
 	User     user      `json:"user"`
 	HTMLURL  string    `json:"html_url"`
 	ClosedAt time.Time `json:"closed_at"`
@@ -94,11 +95,8 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 	}
 }
 
-type item struct {
-	Number  int    `json:"number"`
-	Title   string `json:"title"`
-	HTMLURL string `json:"html_url"`
-	Merged  bool   `json:"merged"`
+type ref struct {
+	URL string `json:"url"`
 }
 
 type ownEvent struct {
@@ -110,8 +108,8 @@ type ownEvent struct {
 	} `json:"repo"`
 	Payload struct {
 		Action      string `json:"action"`
-		PullRequest item   `json:"pull_request"`
-		Issue       item   `json:"issue"`
+		PullRequest ref    `json:"pull_request"`
+		Issue       ref    `json:"issue"`
 	} `json:"payload"`
 }
 
@@ -150,22 +148,28 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 		}
 		w.lastEvent = id
 		p := o.Payload
-		kind, it := "", p.PullRequest
+		kind, target := "", p.PullRequest
 		switch {
 		case o.Type == "PullRequestEvent" && p.Action == "opened":
 			kind = "pr.opened"
-		case o.Type == "PullRequestEvent" && p.Action == "closed" && it.Merged:
-			kind = "pr.merged"
 		case o.Type == "PullRequestEvent" && p.Action == "closed":
 			kind = "pr.closed"
 		case o.Type == "IssuesEvent" && p.Action == "closed":
-			kind, it = "issue.closed", p.Issue
+			kind, target = "issue.closed", p.Issue
 		default:
 			continue
 		}
+		var s subject
+		if err := w.get(ctx, target.URL, &s); err != nil {
+			events = append(events, w.failure(err))
+			continue
+		}
+		if kind == "pr.closed" && s.Merged {
+			kind = "pr.merged"
+		}
 		events = append(events, hark.Event{
 			Time: o.CreatedAt, Provider: "github", Kind: kind, Repo: o.Repo.Name,
-			Number: it.Number, Actor: w.me, Text: it.Title, URL: it.HTMLURL,
+			Number: s.Number, Actor: w.me, Text: s.Title, URL: s.HTMLURL,
 		})
 	}
 	return events

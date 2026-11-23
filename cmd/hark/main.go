@@ -107,6 +107,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		_, _ = fmt.Fprintln(stdout, "hark", displayVersion())
 		return 0
 	}
+	if len(args) == 1 && args[0] == "update" {
+		return selfUpdate(ctx, stdout, stderr)
+	}
 	if len(args) != 1 || providers[args[0]] == nil {
 		_, _ = fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 		return 2
@@ -128,11 +131,7 @@ func autoUpdate(ctx context.Context, args []string, getenv func(string) string, 
 	if version == "dev" || getenv("HARK_NO_UPDATE") != "" {
 		return
 	}
-	exe, err := executable()
-	tag := ""
-	if err == nil {
-		tag, err = runUpdate(ctx, exe, version)
-	}
+	exe, tag, err := install(ctx, version)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "hark: update failed:", err)
 		return
@@ -143,4 +142,27 @@ func autoUpdate(ctx context.Context, args []string, getenv func(string) string, 
 	_, _ = fmt.Fprintf(stderr, "hark: updated %s to %s, restarting\n", version, tag)
 	err = restart(exe, append([]string{exe}, args...), os.Environ())
 	_, _ = fmt.Fprintln(stderr, "hark: restart failed:", err)
+}
+
+func install(ctx context.Context, current string) (exe, tag string, err error) {
+	if exe, err = executable(); err != nil {
+		return "", "", err
+	}
+	tag, err = runUpdate(ctx, exe, current)
+	return exe, tag, err
+}
+
+func selfUpdate(ctx context.Context, stdout, stderr io.Writer) int {
+	current := displayVersion()
+	_, tag, err := install(ctx, current)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "hark: update failed:", err)
+		return 1
+	}
+	if tag == "" {
+		_, _ = fmt.Fprintf(stdout, "hark %s is up to date\n", current)
+		return 0
+	}
+	_, _ = fmt.Fprintf(stdout, "hark updated %s to %s\n", current, tag)
+	return 0
 }

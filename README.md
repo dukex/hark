@@ -23,7 +23,9 @@ With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 
 ### Updates
 
-On every start, a released hark checks the latest GitHub release. When it is newer, hark downloads it, verifies the checksum, replaces its own binary and restarts with the same arguments, printing `hark: updated 0.1.0 to v0.2.0, restarting` on stderr. If the check fails, hark warns and keeps running the version it has. Set `HARK_NO_UPDATE=1` to turn it off. Builds from source (`go install`, `go build`) never update themselves.
+On every start, a released hark checks the latest GitHub release. When it is newer, hark downloads it, verifies the checksum, replaces its own binary and restarts with the same arguments, printing `hark: updated 0.1.0 to v0.2.0, restarting` on stderr. If the check fails, hark warns and keeps running the version it has. Set `HARK_NO_UPDATE=1` to turn it off. Builds from source (`go install`, `go build`) never update themselves on start.
+
+`hark update` updates on demand and exits, printing `hark updated 0.6.0 to v0.7.0` or `hark 0.7.0 is up to date`. It also replaces a build from source with the latest release.
 
 ## Use it from Claude Code or another agent
 

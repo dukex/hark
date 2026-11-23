@@ -111,7 +111,7 @@ func TestReplacesBinaryWhenReleaseIsNewer(t *testing.T) {
 }
 
 func TestKeepsBinaryWhenUpToDate(t *testing.T) {
-	for _, current := range []string{"0.10.0", "v0.10.0", "0.11.0", "1.0.0", "dev", "0.10", "1.x.0"} {
+	for _, current := range []string{"0.10.0", "v0.10.0", "0.11.0", "1.0.0"} {
 		exe := executable(t)
 		u := Updater{Releases: serve(t, goodRelease(t, "v0.10.0")), Executable: exe}
 		if tag, err := u.Run(context.Background(), current); err != nil || tag != "" {
@@ -119,6 +119,16 @@ func TestKeepsBinaryWhenUpToDate(t *testing.T) {
 		}
 		if got := content(t, exe); got != "old binary" {
 			t.Errorf("%s: executable replaced", current)
+		}
+	}
+}
+
+func TestUnknownVersionUpdatesToLatest(t *testing.T) {
+	for _, current := range []string{"dev", "0.10", "1.x.0", "v0.0.0-20261123212216-ac8fd727fc16+dirty"} {
+		exe := executable(t)
+		u := Updater{Releases: serve(t, goodRelease(t, "v0.10.0")), Executable: exe}
+		if tag, err := u.Run(context.Background(), current); err != nil || tag != "v0.10.0" {
+			t.Errorf("%s: tag %q, err %v", current, tag, err)
 		}
 	}
 }

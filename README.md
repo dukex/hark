@@ -26,6 +26,11 @@ GitHub has no per-user webhooks, so hark polls every minute:
 
 Only events that happen after hark starts are printed. Nothing is marked as read.
 
+Known limits:
+
+- GitHub delays the events API by 30 seconds up to a few hours, so your own actions can show up late.
+- Each poll reports only the latest comment on a thread. Two comments within a minute show as one.
+
 | Kind | When |
 |------|------|
 | `issue.commented`, `pr.commented` | someone comments |

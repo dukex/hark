@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -22,6 +23,7 @@ import (
 
 var (
 	version    = "dev"
+	buildInfo  = debug.ReadBuildInfo
 	releases   = "https://github.com/dukex/hark/releases"
 	restart    = syscall.Exec
 	executable = os.Executable
@@ -93,7 +95,18 @@ func main() {
 	exit(code)
 }
 
+func displayVersion() string {
+	if info, ok := buildInfo(); ok && version == "dev" && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return version
+}
+
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	if len(args) == 1 && slices.Contains([]string{"--version", "-v", "version"}, args[0]) {
+		_, _ = fmt.Fprintln(stdout, "hark", displayVersion())
+		return 0
+	}
 	if len(args) != 1 || providers[args[0]] == nil {
 		_, _ = fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 		return 2

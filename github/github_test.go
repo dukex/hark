@@ -356,3 +356,32 @@ func TestWatchedThreadsAreMarked(t *testing.T) {
 		`2026-11-23T10:10:00Z github issue.commented acme/lib#7 @frank watching "@dukex olha isso" c70`,
 		`2026-11-23T10:11:00Z github pr.merged acme/lib#40 @erin watching https://github.com/acme/lib/pull/40`)
 }
+
+func ciThread(id, reason, kind, title, updated string) string {
+	return `{"id":"` + id + `","reason":"` + reason + `","updated_at":"` + updated + `","last_read_at":null,
+		"repository":{"full_name":"acme/api"},
+		"subject":{"type":"` + kind + `","title":"` + title + `","url":null,"latest_comment_url":null}}`
+}
+
+func TestCINotifications(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` +
+		ciThread("6", "ci_activity", "CheckSuite", "Terragrunt workflow run, Attempt #5 failed for main branch", "2026-11-23T10:06:00Z") + `,` +
+		ciThread("5", "ci_activity", "CheckSuite", "Lint run for main", "2026-11-23T10:05:00Z") + `,` +
+		ciThread("4", "approval_requested", "WorkflowRun", "erin requested your review to deploy to an environment", "2026-11-23T10:04:00Z") + `,` +
+		ciThread("3", "ci_activity", "CheckSuite", "AI Factory workflow run skipped for feat/x branch", "2026-11-23T10:03:00Z") + `,` +
+		ciThread("2", "ci_activity", "CheckSuite", "CI/CD workflow run succeeded for main branch", "2026-11-23T10:02:00Z") + `,` +
+		ciThread("1", "ci_activity", "CheckSuite", "CI/CD workflow run failed for fix/y branch", "2026-11-23T10:01:00Z") + `]`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:01:00Z github ci.failed acme/api "CI/CD workflow run failed for fix/y branch"`,
+		`2026-11-23T10:02:00Z github ci.succeeded acme/api "CI/CD workflow run succeeded for main branch"`,
+		`2026-11-23T10:03:00Z github ci.skipped acme/api "AI Factory workflow run skipped for feat/x branch"`,
+		`2026-11-23T10:04:00Z github ci.approval_requested acme/api "erin requested your review to deploy to an environment"`,
+		`2026-11-23T10:05:00Z github ci.ci_activity acme/api "Lint run for main"`,
+		`2026-11-23T10:06:00Z github ci.failed acme/api "Terragrunt workflow run, Attempt #5 failed for main branch"`)
+	if strings.Join(f.marked, ",") != "1,2,3,4,5,6" {
+		t.Errorf("marked %v", f.marked)
+	}
+}

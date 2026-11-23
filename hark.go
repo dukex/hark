@@ -29,8 +29,10 @@ const maxText = 140
 
 func (e Event) String() string {
 	parts := []string{e.Time.UTC().Format(time.RFC3339), e.Provider, e.Kind}
-	if e.Repo != "" {
+	if e.Number != 0 {
 		parts = append(parts, fmt.Sprintf("%s#%d", e.Repo, e.Number))
+	} else if e.Repo != "" {
+		parts = append(parts, e.Repo)
 	}
 	if e.Actor != "" {
 		parts = append(parts, "@"+e.Actor)

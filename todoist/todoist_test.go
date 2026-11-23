@@ -282,7 +282,9 @@ func TestStateSaveFailureBecomesErrorEvent(t *testing.T) {
 func TestDoctor(t *testing.T) {
 	f := newFake(t, map[string]string{"": page("")}, `{"results":[]}`)
 	state := filepath.Join(t.TempDir(), "todoist.json")
-	checks := New(f.URL, "secret", state).Doctor(context.Background())
+	w := New(f.URL, "secret", state)
+	w.Now = func() time.Time { return now }
+	checks := w.Doctor(context.Background())
 	var got []string
 	for _, c := range checks {
 		if c.Err != nil {
@@ -292,6 +294,9 @@ func TestDoctor(t *testing.T) {
 	}
 	if strings.Join(got, "|") != "token: valid|activity log: readable|state: "+state {
 		t.Errorf("got %v", got)
+	}
+	if q := f.queries[len(f.queries)-1]; q.Get("date_from") != "2026-11-23T21:00:00Z" || q.Get("limit") != "1" {
+		t.Errorf("activity check should only look from now on: %v", q)
 	}
 
 	if checks := New(f.URL, "wrong", state).Doctor(context.Background()); len(checks) != 1 || checks[0].Err == nil {

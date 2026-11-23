@@ -210,7 +210,7 @@ func (w *Watcher) Doctor(ctx context.Context) []hark.Check {
 	}
 	return []hark.Check{
 		{Name: "token", Detail: "valid"},
-		{Name: "activity log", Detail: "readable", Err: w.get(ctx, "/activities?limit=1", &activity)},
+		{Name: "activity log", Detail: "readable", Err: w.get(ctx, "/activities?"+url.Values{"limit": {"1"}, "date_from": {w.Now().UTC().Format(time.RFC3339)}}.Encode(), &activity)},
 		hark.CheckState(w.State),
 	}
 }

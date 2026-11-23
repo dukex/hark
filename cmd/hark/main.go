@@ -53,16 +53,16 @@ func main() {
 
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) != 1 || providers[args[0]] == nil {
-		fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
+		_, _ = fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 		return 2
 	}
 	p, err := providers[args[0]](getenv)
 	if err != nil {
-		fmt.Fprintln(stderr, "hark:", err)
+		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
 	}
-	if err := p.Watch(ctx, func(e hark.Event) { fmt.Fprintln(stdout, e) }); err != nil {
-		fmt.Fprintln(stderr, "hark:", err)
+	if err := p.Watch(ctx, func(e hark.Event) { _, _ = fmt.Fprintln(stdout, e) }); err != nil {
+		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
 	}
 	return 0

@@ -36,7 +36,7 @@ func newFake(t *testing.T, routes map[string]string) *fakeGitHub {
 			http.NotFound(w, r)
 			return
 		}
-		w.Write([]byte(strings.ReplaceAll(body, "{{API}}", f.URL)))
+		_, _ = w.Write([]byte(strings.ReplaceAll(body, "{{API}}", f.URL)))
 	}))
 	t.Cleanup(f.Close)
 	return f

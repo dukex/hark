@@ -46,7 +46,7 @@ func TestHarkGitHubEndToEnd(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		w.Write([]byte(strings.NewReplacer("SOON", soon, "API", api.URL).Replace(body)))
+		_, _ = w.Write([]byte(strings.NewReplacer("SOON", soon, "API", api.URL).Replace(body)))
 	}))
 	defer api.Close()
 

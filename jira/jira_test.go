@@ -134,24 +134,24 @@ func assertLines(t *testing.T, events []hark.Event, want ...string) {
 
 func TestIssueActivity(t *testing.T) {
 	f := newFake(t, map[string]string{
-		"": page("p2", issueJSON("CAJU-1", "Login quebrado",
+		"": page("p2", issueJSON("PROJ-1", "Login quebrado",
 			commentJSON("10", "ana", "Ana Lima", "2026-11-23T17:10:00.000-0300", paragraph(text("pode olhar o log?")))+","+
 				commentJSON("11", "bob", "Bob", "2026-11-23T17:20:00.000-0300", paragraph(text("cc "), mention("me-1", "Duke"), text(" sobre o deploy")))+","+
 				commentJSON("12", "me-1", "Duke", "2026-11-23T17:25:00.000-0300", paragraph(text("eu mesmo"))),
 			historyJSON("200", "ana", "Ana Lima", "2026-11-23T17:30:00.000-0300",
 				`{"field":"status","fromString":"In Progress","toString":"Done"},{"field":"labels","fromString":"","toString":"x"}`)+","+
 				historyJSON("199", "me-1", "Duke", "2026-11-23T17:15:00.000-0300", `{"field":"status","fromString":"To Do","toString":"In Progress"}`))),
-		"p2": page("", issueJSON("CAJU-2", "Nova tela", "",
+		"p2": page("", issueJSON("PROJ-2", "Nova tela", "",
 			historyJSON("300", "carla", "Carla", "2026-11-23T17:05:00.000-0300", `{"field":"assignee","to":"me-1","toString":"Duke"}`)+","+
 				historyJSON("301", "carla", "Carla", "2026-11-23T17:06:00.000-0300", `{"field":"assignee","to":"other","toString":"Zé"}`))),
 	})
 	w := f.watcher(t)
 
 	assertLines(t, w.poll(context.Background()),
-		`2026-11-23T20:05:00Z jira jira.assigned CAJU-2 "Nova tela (assigned by Carla)" `+f.URL+`/browse/CAJU-2`,
-		`2026-11-23T20:10:00Z jira jira.commented CAJU-1 "Ana Lima: pode olhar o log?" `+f.URL+`/browse/CAJU-1?focusedCommentId=10`,
-		`2026-11-23T20:20:00Z jira jira.mentioned CAJU-1 "Bob: cc @Duke sobre o deploy" `+f.URL+`/browse/CAJU-1?focusedCommentId=11`,
-		`2026-11-23T20:30:00Z jira jira.transitioned CAJU-1 "Login quebrado: In Progress to Done (Ana Lima)" `+f.URL+`/browse/CAJU-1`)
+		`2026-11-23T20:05:00Z jira jira.assigned PROJ-2 "Nova tela (assigned by Carla)" `+f.URL+`/browse/PROJ-2`,
+		`2026-11-23T20:10:00Z jira jira.commented PROJ-1 "Ana Lima: pode olhar o log?" `+f.URL+`/browse/PROJ-1?focusedCommentId=10`,
+		`2026-11-23T20:20:00Z jira jira.mentioned PROJ-1 "Bob: cc @Duke sobre o deploy" `+f.URL+`/browse/PROJ-1?focusedCommentId=11`,
+		`2026-11-23T20:30:00Z jira jira.transitioned PROJ-1 "Login quebrado: In Progress to Done (Ana Lima)" `+f.URL+`/browse/PROJ-1`)
 
 	q := f.queries[0]
 	if q.Get("jql") != "(assignee = currentUser() OR reporter = currentUser() OR watcher = currentUser()) AND updated >= -62m ORDER BY updated ASC" ||
@@ -161,15 +161,15 @@ func TestIssueActivity(t *testing.T) {
 }
 
 func TestActivityIsReportedOnce(t *testing.T) {
-	f := newFake(t, map[string]string{"": page("", issueJSON("CAJU-1", "S",
+	f := newFake(t, map[string]string{"": page("", issueJSON("PROJ-1", "S",
 		commentJSON("2", "ana", "Ana", "2026-11-23T20:10:00.000+0000", paragraph(text("b")))+","+
 			commentJSON("1", "ana", "Ana", "2026-11-23T20:10:00.000+0000", paragraph(text("a")))+","+
 			commentJSON("0", "ana", "Ana", "2026-11-23T19:00:00.000+0000", paragraph(text("antes"))), ""))})
 	w := f.watcher(t)
 
 	assertLines(t, w.poll(context.Background()),
-		`2026-11-23T20:10:00Z jira jira.commented CAJU-1 "Ana: b" `+f.URL+`/browse/CAJU-1?focusedCommentId=2`,
-		`2026-11-23T20:10:00Z jira jira.commented CAJU-1 "Ana: a" `+f.URL+`/browse/CAJU-1?focusedCommentId=1`)
+		`2026-11-23T20:10:00Z jira jira.commented PROJ-1 "Ana: b" `+f.URL+`/browse/PROJ-1?focusedCommentId=2`,
+		`2026-11-23T20:10:00Z jira jira.commented PROJ-1 "Ana: a" `+f.URL+`/browse/PROJ-1?focusedCommentId=1`)
 	assertLines(t, w.poll(context.Background()))
 }
 
@@ -178,8 +178,8 @@ func TestFailuresBecomeErrorEvents(t *testing.T) {
 		"search unavailable":   {},
 		"second page missing":  {"": page("gone")},
 		"bad json":             {"": "nope"},
-		"date not a string":    {"": page("", issueJSON("CAJU-1", "S", `{"id":"1","author":{},"body":{},"created":123}`, ""))},
-		"date in other format": {"": page("", issueJSON("CAJU-1", "S", `{"id":"1","author":{},"body":{},"created":"23/11/2026"}`, ""))},
+		"date not a string":    {"": page("", issueJSON("PROJ-1", "S", `{"id":"1","author":{},"body":{},"created":123}`, ""))},
+		"date in other format": {"": page("", issueJSON("PROJ-1", "S", `{"id":"1","author":{},"body":{},"created":"23/11/2026"}`, ""))},
 	} {
 		t.Run(name, func(t *testing.T) {
 			events := newFake(t, pages).watcher(t).poll(context.Background())
@@ -196,7 +196,7 @@ func TestFailuresBecomeErrorEvents(t *testing.T) {
 }
 
 func TestWatchResumesAndSavesState(t *testing.T) {
-	f := newFake(t, map[string]string{"": page("", issueJSON("CAJU-1", "S",
+	f := newFake(t, map[string]string{"": page("", issueJSON("PROJ-1", "S",
 		commentJSON("1", "ana", "Ana", "2026-11-23T20:10:00.000+0000", paragraph(text("oi"))), ""))})
 	state := filepath.Join(t.TempDir(), "jira.json")
 	if err := hark.SaveState(state, map[string]any{"cursor": "2026-11-23T20:00:00Z"}); err != nil {
@@ -210,7 +210,7 @@ func TestWatchResumesAndSavesState(t *testing.T) {
 	if err := w.Watch(ctx, func(e hark.Event) { got = append(got, e); cancel() }); err != nil {
 		t.Fatal(err)
 	}
-	assertLines(t, got, `2026-11-23T20:10:00Z jira jira.commented CAJU-1 "Ana: oi" `+f.URL+`/browse/CAJU-1?focusedCommentId=1`)
+	assertLines(t, got, `2026-11-23T20:10:00Z jira jira.commented PROJ-1 "Ana: oi" `+f.URL+`/browse/PROJ-1?focusedCommentId=1`)
 	var saved struct {
 		Cursor time.Time `json:"cursor"`
 	}

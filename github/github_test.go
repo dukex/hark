@@ -302,3 +302,11 @@ func TestWatchedThreadsAreMarked(t *testing.T) {
 		`2026-11-23T10:10:00Z github issue.commented acme/lib#7 @frank watching "@dukex olha isso" c70`,
 		`2026-11-23T10:11:00Z github pr.merged acme/lib#40 @erin watching https://github.com/acme/lib/pull/40`)
 }
+
+func TestThreadUpdatedBeforeStartIsIgnored(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "review_requested", "PullRequest", "/repos/dukex/foo/pulls/1", "", "2026-11-23T09:59:30Z") + `]`
+	routes["/repos/dukex/foo/pulls/1"] = `{"number":1,"user":{"login":"erin"},"html_url":"u"}`
+	f := newFake(t, routes)
+	assertLines(t, f.watcher().poll(context.Background()))
+}

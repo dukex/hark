@@ -174,11 +174,11 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
 	kind, ok := kinds[n.Subject.Type]
 	prev, known := w.seen[n.ID]
-	if !ok || (known && !n.UpdatedAt.After(prev)) {
-		return nil
-	}
 	if !known {
-		prev = w.since
+		prev = w.started
+	}
+	if !ok || !n.UpdatedAt.After(prev) {
+		return nil
 	}
 	var s subject
 	if err := w.get(ctx, n.Subject.URL, &s); err != nil {

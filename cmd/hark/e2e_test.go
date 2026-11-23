@@ -40,8 +40,14 @@ func TestHarkGitHubEndToEnd(t *testing.T) {
 			"payload":{"action":"opened","number":12,"pull_request":{"number":12,"url":"API/repos/dukex/foo/pulls/12"}}}]`,
 		"/repos/dukex/foo/pulls/12": `{"number":12,"title":"feat: x","html_url":"https://github.com/dukex/foo/pull/12"}`,
 	}
+	var marked []string
 	var api *httptest.Server
 	api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if id, ok := strings.CutPrefix(r.URL.Path, "/notifications/threads/"); ok && r.Method == http.MethodPatch {
+			marked = append(marked, id)
+			w.WriteHeader(http.StatusResetContent)
+			return
+		}
 		body, ok := routes[r.URL.Path]
 		if !ok || r.Header.Get("Authorization") != "Bearer secret" {
 			http.NotFound(w, r)
@@ -63,5 +69,8 @@ SOON github pr.opened dukex/foo#12 @dukex "feat: x" https://github.com/dukex/foo
 `, "SOON", soon)
 	if code != 0 || stdout.String() != want || stderr.Len() != 0 {
 		t.Errorf("exit %d\nstderr: %s\ngot:\n%s\nwant:\n%s", code, stderr.String(), stdout.String(), want)
+	}
+	if strings.Join(marked, ",") != "1,2" {
+		t.Errorf("marked %v, want both threads read", marked)
 	}
 }

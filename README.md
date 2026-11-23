@@ -57,7 +57,7 @@ GitHub has no per-user webhooks, so hark polls every minute:
 - `/notifications` for activity by others on issues and PRs you authored or watch. Threads authored by someone else are marked `watching`.
 - `/users/{you}/events` for your own actions, which GitHub never notifies you about.
 
-Only events that happen after hark starts are printed. Nothing is marked as read.
+hark reads only unread notifications and marks each thread as read once it has printed it, so a restarted hark, or a second consumer, never sees the same notification twice. On startup it picks up unread notifications from the last hour, which covers the gap while a monitor is re-armed; older unread ones are left untouched. Threads hark does not report (releases, CI runs) stay unread. Opening a thread on github.com marks it as read too, so hark skips it.
 
 Known limits:
 

@@ -56,9 +56,13 @@ type notification struct {
 }
 
 type subject struct {
-	Number  int    `json:"number"`
-	User    user   `json:"user"`
-	HTMLURL string `json:"html_url"`
+	Number   int       `json:"number"`
+	User     user      `json:"user"`
+	HTMLURL  string    `json:"html_url"`
+	ClosedAt time.Time `json:"closed_at"`
+	ClosedBy user      `json:"closed_by"`
+	Merged   bool      `json:"merged"`
+	MergedBy user      `json:"merged_by"`
 }
 
 type comment struct {
@@ -128,6 +132,14 @@ func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
 			e.Time, e.Kind, e.Actor, e.Text, e.URL = c.CreatedAt, kind+".commented", c.User.Login, c.Body, c.HTMLURL
 			events = append(events, e)
 		}
+	}
+	if s.ClosedAt.After(prev) {
+		e := base
+		e.Time, e.Kind, e.Actor, e.URL = s.ClosedAt, kind+".closed", s.ClosedBy.Login, s.HTMLURL
+		if s.Merged {
+			e.Kind, e.Actor = kind+".merged", s.MergedBy.Login
+		}
+		events = append(events, e)
 	}
 	if len(events) == 0 {
 		e := base

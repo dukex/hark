@@ -203,3 +203,49 @@ func TestUnsupportedSubjectsAreSkipped(t *testing.T) {
 	f := newFake(t, routes)
 	assertLines(t, f.watcher().poll(context.Background()))
 }
+
+func TestMyIssueClosed(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:07:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"state":"closed","user":{"login":"dukex"},"closed_at":"2026-11-23T10:07:00Z","closed_by":{"login":"carol"},"html_url":"https://github.com/dukex/foo/issues/3"}`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:07:00Z github issue.closed dukex/foo#3 @carol https://github.com/dukex/foo/issues/3`)
+}
+
+func TestMyPRMergedAndClosed(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` +
+		thread("2", "author", "PullRequest", "/repos/dukex/foo/pulls/13", "", "2026-11-23T10:09:00Z") + `,` +
+		thread("1", "author", "PullRequest", "/repos/dukex/foo/pulls/12", "", "2026-11-23T10:08:00Z") + `]`
+	routes["/repos/dukex/foo/pulls/12"] = `{"number":12,"state":"closed","merged":true,"merged_by":{"login":"bob"},"user":{"login":"dukex"},"closed_at":"2026-11-23T10:08:00Z","html_url":"https://github.com/dukex/foo/pull/12"}`
+	routes["/repos/dukex/foo/pulls/13"] = `{"number":13,"state":"closed","merged":false,"user":{"login":"dukex"},"closed_at":"2026-11-23T10:09:00Z","html_url":"https://github.com/dukex/foo/pull/13"}`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:08:00Z github pr.merged dukex/foo#12 @bob https://github.com/dukex/foo/pull/12`,
+		`2026-11-23T10:09:00Z github pr.closed dukex/foo#13 https://github.com/dukex/foo/pull/13`)
+}
+
+func TestClosedWithCommentReportsBoth(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "/repos/dukex/foo/issues/comments/9", "2026-11-23T10:07:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"state":"closed","user":{"login":"dukex"},"closed_at":"2026-11-23T10:07:00Z","closed_by":{"login":"carol"},"html_url":"u"}`
+	routes["/repos/dukex/foo/issues/comments/9"] = `{"user":{"login":"carol"},"body":"resolvido","created_at":"2026-11-23T10:06:59Z","html_url":"c9"}`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:06:59Z github issue.commented dukex/foo#3 @carol "resolvido" c9`,
+		`2026-11-23T10:07:00Z github issue.closed dukex/foo#3 @carol u`)
+}
+
+func TestCloseFromBeforeStartIsIgnored(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:07:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"state":"closed","user":{"login":"dukex"},"closed_at":"2026-11-20T00:00:00Z","html_url":"u"}`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:07:00Z github issue.updated dukex/foo#3 "author" u`)
+}

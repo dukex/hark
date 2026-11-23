@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -72,5 +73,41 @@ SOON github pr.opened dukex/foo#12 @dukex "feat: x" https://github.com/dukex/foo
 	}
 	if strings.Join(marked, ",") != "1,2" {
 		t.Errorf("marked %v, want both threads read", marked)
+	}
+}
+
+func TestHarkTodoistEndToEnd(t *testing.T) {
+	soon := time.Now().UTC().Add(time.Minute).Format(time.RFC3339)
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer tok" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch r.URL.Path {
+		case "/activities":
+			_, _ = w.Write([]byte(`{"results":[{"id":2170587828302538600000000000000000000,"object_type":"item","event_type":"completed","object_id":"t1","event_date":"` + soon + `","extra_data":{"content":"Aprovar o gate"}}],"next_cursor":null}`))
+		case "/tasks/filter":
+			_, _ = w.Write([]byte(`{"results":[{"id":"t2","content":"Pagar boleto"}],"next_cursor":null}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer api.Close()
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	stdout := &linesUntil{want: 2, cancel: cancel}
+	var stderr bytes.Buffer
+	code := run(ctx, []string{"todoist"}, env(map[string]string{"TODOIST_API_TOKEN": "tok", "HARK_TODOIST_API": api.URL}), stdout, &stderr)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if code != 0 || stderr.Len() != 0 || len(lines) != 2 ||
+		lines[0] != soon+` todoist task.completed "Aprovar o gate" https://app.todoist.com/app/task/t1` ||
+		!strings.HasSuffix(lines[1], ` todoist task.due "Pagar boleto" https://app.todoist.com/app/task/t2`) {
+		t.Errorf("exit %d\nstderr: %s\nstdout:\n%s", code, stderr.String(), stdout.String())
+	}
+	if _, err := os.Stat(os.Getenv("XDG_STATE_HOME") + "/hark/todoist.json"); err != nil {
+		t.Errorf("state not saved: %v", err)
 	}
 }

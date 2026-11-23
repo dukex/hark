@@ -1,0 +1,46 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test -race ./...
+      - uses: golangci/golangci-lint-action@v9
+      - run: shellcheck install.sh
+      - id: version
+        run: |
+          go install github.com/caarlos0/svu/v3@v3.4.4
+          current=$(svu current)
+          next=$(svu next)
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "release=$([ "$current" != "$next" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - if: steps.version.outputs.release == 'true'
+        run: |
+          git tag "${{ steps.version.outputs.next }}"
+          git push origin "${{ steps.version.outputs.next }}"
+      - if: steps.version.outputs.release == 'true'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.version.outputs.release == 'true'
+        run: |
+          sh install.sh
+          ~/.local/bin/hark || [ $? -eq 2 ]

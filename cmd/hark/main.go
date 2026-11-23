@@ -15,6 +15,7 @@ import (
 
 	"github.com/dukex/hark"
 	"github.com/dukex/hark/github"
+	"github.com/dukex/hark/jira"
 	"github.com/dukex/hark/todoist"
 	"github.com/dukex/hark/update"
 )
@@ -36,6 +37,7 @@ var (
 
 var providers = map[string]func(getenv func(string) string) (hark.Provider, error){
 	"github":  newGitHub,
+	"jira":    newJira,
 	"todoist": newTodoist,
 }
 
@@ -65,6 +67,23 @@ func newTodoist(getenv func(string) string) (hark.Provider, error) {
 		return nil, err
 	}
 	return todoist.New(cmp.Or(getenv("HARK_TODOIST_API"), "https://api.todoist.com/api/v1"), token, state), nil
+}
+
+func newJira(getenv func(string) string) (hark.Provider, error) {
+	var missing []string
+	for _, name := range []string{"JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"} {
+		if getenv(name) == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("set %s (the token comes from id.atlassian.com, Security, API tokens)", strings.Join(missing, ", "))
+	}
+	state, err := hark.StatePath("jira")
+	if err != nil {
+		return nil, err
+	}
+	return jira.New(getenv("JIRA_URL"), getenv("JIRA_EMAIL"), getenv("JIRA_API_TOKEN"), state), nil
 }
 
 func main() {

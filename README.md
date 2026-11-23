@@ -28,7 +28,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 Paste this prompt into the session:
 
 ```text
-Watch my GitHub and Todoist activity with hark while we work.
+Watch my GitHub, Jira and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -54,14 +54,19 @@ Watch my GitHub and Todoist activity with hark while we work.
      waiting for that workflow.
    - `error`: hark keeps retrying. Tell me only if it repeats.
    - A line starting with `hark:` means hark stopped. Show it to me.
-4. If `TODOIST_API_TOKEN` is set, start a second monitor the same way with
-   `hark todoist 2>&1`, described as "Todoist activity":
+4. If `JIRA_API_TOKEN` is set, start another monitor the same way with
+   `hark jira 2>&1`, described as "Jira activity on my issues":
+   - `jira.mentioned`, `jira.assigned`: tell me right away.
+   - `jira.commented`: tell me what it asks for.
+   - `jira.transitioned`: tell me in one line.
+   If `TODOIST_API_TOKEN` is set, start one more with `hark todoist 2>&1`,
+   described as "Todoist activity":
    - `task.due`: remind me of what is due today, once.
    - `task.commented`: tell me what the comment says.
    - `task.created`, `task.completed`, `task.rescheduled`: stay quiet unless
      the task is about the work in this session.
-5. Never reply, close or change anything on GitHub or Todoist without asking
-   me first.
+5. Never reply, close or change anything on GitHub, Jira or Todoist without
+   asking me first.
 ```
 
 ## GitHub
@@ -89,6 +94,22 @@ Known limits:
 | `ci.failed`, `ci.succeeded`, `ci.cancelled`, `ci.skipped` | a workflow run you get notified about finished; the text is GitHub's title, with workflow and branch |
 | `ci.approval_requested` | someone asked you to approve a deployment |
 | `error` | a request failed; hark keeps polling |
+
+## Jira
+
+`hark jira` needs `JIRA_URL` (for example `https://yourcompany.atlassian.net`), `JIRA_EMAIL` and `JIRA_API_TOKEN`, from id.atlassian.com, Security, API tokens. Every minute it searches the issues you are assigned to, reported or watch, and reads their comments and history. Your own actions are skipped.
+
+Like Todoist, it keeps its cursor in `~/.local/state/hark/jira.json` and the first run picks up the last hour.
+
+| Kind | When |
+|------|------|
+| `jira.commented` | someone comments; the text starts with their name |
+| `jira.mentioned` | a comment @mentions you |
+| `jira.transitioned` | the status changes, for example `In Progress to Done` |
+| `jira.assigned` | someone assigns the issue to you |
+| `error` | a request failed; hark keeps polling |
+
+Mentions on issues you don't follow are not reported.
 
 ## Todoist
 

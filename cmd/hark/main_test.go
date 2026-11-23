@@ -79,3 +79,10 @@ func TestDefaultAPIIsGitHubCom(t *testing.T) {
 		t.Errorf("api %q token %q", w.API, w.Token)
 	}
 }
+
+func TestGhTokenRunsGhCLI(t *testing.T) {
+	token, err := ghToken()
+	if err == nil && (token == "" || strings.ContainsAny(token, " \n")) {
+		t.Errorf("gh succeeded but returned %q", token)
+	}
+}

@@ -69,8 +69,9 @@ func thread(id, reason, kind, subjectPath, commentPath, updated string) string {
 	if commentPath != "" {
 		latest = `"{{API}}` + commentPath + `"`
 	}
+	repo := strings.Join(strings.Split(subjectPath, "/")[2:4], "/")
 	return `{"id":"` + id + `","reason":"` + reason + `","updated_at":"` + updated + `",
-		"repository":{"full_name":"dukex/foo"},
+		"repository":{"full_name":"` + repo + `"},
 		"subject":{"type":"` + kind + `","url":"{{API}}` + subjectPath + `","latest_comment_url":` + latest + `}}`
 }
 
@@ -285,4 +286,19 @@ func TestOwnEventsUnavailableBecomesErrorEvent(t *testing.T) {
 	if len(events) != 1 || events[0].Kind != "error" {
 		t.Fatalf("want one error event, got %v", lines(events))
 	}
+}
+
+func TestWatchedThreadsAreMarked(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` +
+		thread("2", "subscribed", "PullRequest", "/repos/acme/lib/pulls/40", "", "2026-11-23T10:11:00Z") + `,` +
+		thread("1", "mention", "Issue", "/repos/acme/lib/issues/7", "/repos/acme/lib/issues/comments/70", "2026-11-23T10:10:00Z") + `]`
+	routes["/repos/acme/lib/issues/7"] = `{"number":7,"state":"open","user":{"login":"erin"},"html_url":"https://github.com/acme/lib/issues/7"}`
+	routes["/repos/acme/lib/issues/comments/70"] = `{"user":{"login":"frank"},"body":"@dukex olha isso","created_at":"2026-11-23T10:10:00Z","html_url":"c70"}`
+	routes["/repos/acme/lib/pulls/40"] = `{"number":40,"state":"closed","merged":true,"merged_by":{"login":"erin"},"user":{"login":"erin"},"closed_at":"2026-11-23T10:11:00Z","html_url":"https://github.com/acme/lib/pull/40"}`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:10:00Z github issue.commented acme/lib#7 @frank watching "@dukex olha isso" c70`,
+		`2026-11-23T10:11:00Z github pr.merged acme/lib#40 @erin watching https://github.com/acme/lib/pull/40`)
 }

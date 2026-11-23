@@ -184,7 +184,7 @@ func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
 	if err := w.get(ctx, n.Subject.URL, &s); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
-	base := hark.Event{Provider: "github", Repo: n.Repository.FullName, Number: s.Number}
+	base := hark.Event{Provider: "github", Repo: n.Repository.FullName, Number: s.Number, Watching: s.User.Login != w.me}
 	var events []hark.Event
 	if strings.Contains(n.Subject.LatestCommentURL, "/comments/") {
 		var c comment

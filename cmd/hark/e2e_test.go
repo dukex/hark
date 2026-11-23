@@ -36,6 +36,8 @@ func TestHarkGitHubEndToEnd(t *testing.T) {
 			 "subject":{"type":"Issue","url":"API/repos/dukex/foo/issues/3","latest_comment_url":null}}]`,
 		"/repos/dukex/foo/issues/3":          `{"number":3,"user":{"login":"dukex"},"closed_at":"SOON","closed_by":{"login":"carol"},"html_url":"https://github.com/dukex/foo/issues/3"}`,
 		"/repos/acme/lib/pulls/40":           `{"number":40,"user":{"login":"erin"},"html_url":"https://github.com/acme/lib/pull/40"}`,
+		"/repos/acme/lib/pulls/40/reviews":   `[{"id":1,"user":{"login":"gina"},"state":"APPROVED","body":"","submitted_at":"SOON","html_url":"https://github.com/acme/lib/pull/40#pullrequestreview-1"}]`,
+		"/repos/acme/lib/pulls/40/comments":  `[]`,
 		"/repos/acme/lib/issues/comments/70": `{"user":{"login":"frank"},"body":"rebase?","created_at":"SOON","html_url":"https://github.com/acme/lib/pull/40#issuecomment-70"}`,
 		"/users/dukex/events": `[{"id":"9","type":"PullRequestEvent","created_at":"SOON","repo":{"name":"dukex/foo"},
 			"payload":{"action":"opened","number":12,"pull_request":{"number":12,"url":"API/repos/dukex/foo/pulls/12"}}}]`,
@@ -60,12 +62,13 @@ func TestHarkGitHubEndToEnd(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	stdout := &linesUntil{want: 3, cancel: cancel}
+	stdout := &linesUntil{want: 4, cancel: cancel}
 	var stderr bytes.Buffer
 	code := run(ctx, []string{"github"}, env(map[string]string{"GITHUB_TOKEN": "secret", "HARK_GITHUB_API": api.URL}), stdout, &stderr)
 
 	want := strings.ReplaceAll(`SOON github issue.closed dukex/foo#3 @carol https://github.com/dukex/foo/issues/3
 SOON github pr.commented acme/lib#40 @frank watching "rebase?" https://github.com/acme/lib/pull/40#issuecomment-70
+SOON github pr.approved acme/lib#40 @gina watching https://github.com/acme/lib/pull/40#pullrequestreview-1
 SOON github pr.opened dukex/foo#12 @dukex "feat: x" https://github.com/dukex/foo/pull/12
 `, "SOON", soon)
 	if code != 0 || stdout.String() != want || stderr.Len() != 0 {

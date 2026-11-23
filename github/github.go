@@ -1,12 +1,14 @@
 package github
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -211,7 +213,7 @@ func (w *Watcher) discussion(ctx context.Context, n notification, kind string) (
 	}
 	base := hark.Event{Provider: "github", Repo: n.Repository.FullName, Number: s.Number, Watching: s.User.Login != w.me}
 	var events []hark.Event
-	if strings.Contains(n.Subject.LatestCommentURL, "/comments/") {
+	if strings.Contains(n.Subject.LatestCommentURL, "/issues/comments/") {
 		var c comment
 		if err := w.do(ctx, http.MethodGet, n.Subject.LatestCommentURL, &c); err != nil {
 			return nil, err
@@ -230,9 +232,66 @@ func (w *Watcher) discussion(ctx context.Context, n notification, kind string) (
 		}
 		events = append(events, e)
 	}
+	if kind == "pr" {
+		reviews, err := w.reviews(ctx, base, n.Subject.URL, prev)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, reviews...)
+	}
 	if len(events) == 0 {
 		e := base
 		e.Time, e.Kind, e.Text, e.URL = n.UpdatedAt, kind+".updated", n.Reason, s.HTMLURL
+		events = append(events, e)
+	}
+	slices.SortStableFunc(events, func(a, b hark.Event) int { return a.Time.Compare(b.Time) })
+	return events, nil
+}
+
+type review struct {
+	ID          int64     `json:"id"`
+	User        user      `json:"user"`
+	State       string    `json:"state"`
+	Body        string    `json:"body"`
+	SubmittedAt time.Time `json:"submitted_at"`
+	HTMLURL     string    `json:"html_url"`
+}
+
+type reviewComment struct {
+	ReviewID int64  `json:"pull_request_review_id"`
+	Body     string `json:"body"`
+}
+
+var (
+	reviewKinds = map[string]string{"APPROVED": "pr.approved", "CHANGES_REQUESTED": "pr.changes_requested"}
+	htmlComment = regexp.MustCompile(`(?s)<!--.*?-->`)
+)
+
+func (w *Watcher) reviews(ctx context.Context, base hark.Event, pull string, prev time.Time) ([]hark.Event, error) {
+	var reviews []review
+	if err := w.do(ctx, http.MethodGet, pull+"/reviews?per_page=100", &reviews); err != nil {
+		return nil, err
+	}
+	var comments []reviewComment
+	q := url.Values{"since": {prev.UTC().Format(time.RFC3339)}, "per_page": {"100"}}
+	if err := w.do(ctx, http.MethodGet, pull+"/comments?"+q.Encode(), &comments); err != nil {
+		return nil, err
+	}
+	inline := map[int64][]string{}
+	for _, c := range comments {
+		inline[c.ReviewID] = append(inline[c.ReviewID], c.Body)
+	}
+	var events []hark.Event
+	for _, r := range reviews {
+		if !r.SubmittedAt.After(prev) || r.User.Login == w.me {
+			continue
+		}
+		e := base
+		e.Time, e.Kind, e.Actor, e.URL = r.SubmittedAt, cmp.Or(reviewKinds[r.State], "pr.reviewed"), r.User.Login, r.HTMLURL
+		e.Text = strings.TrimSpace(htmlComment.ReplaceAllString(r.Body, ""))
+		if c := inline[r.ID]; len(c) > 0 {
+			e.Text = fmt.Sprintf("%s (%d inline comments)", cmp.Or(e.Text, c[0]), len(c))
+		}
 		events = append(events, e)
 	}
 	return events, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/dukex/hark"
 )
+
+var prExtras = regexp.MustCompile(`/pulls/\d+/(reviews|comments)$`)
 
 var start = time.Date(2026, 11, 23, 10, 0, 0, 0, time.UTC)
 
@@ -20,12 +23,13 @@ type fakeGitHub struct {
 	routes     map[string]string
 	hits       map[string]int
 	query      string
+	queries    map[string]string
 	marked     []string
 	markStatus int
 }
 
 func newFake(t *testing.T, routes map[string]string) *fakeGitHub {
-	f := &fakeGitHub{routes: routes, hits: map[string]int{}, markStatus: http.StatusResetContent}
+	f := &fakeGitHub{routes: routes, hits: map[string]int{}, queries: map[string]string{}, markStatus: http.StatusResetContent}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -42,7 +46,11 @@ func newFake(t *testing.T, routes map[string]string) *fakeGitHub {
 		if r.URL.Path == "/notifications" {
 			f.query = r.URL.RawQuery
 		}
+		f.queries[r.URL.Path] = r.URL.RawQuery
 		body, ok := f.routes[r.URL.Path]
+		if !ok && prExtras.MatchString(r.URL.Path) {
+			body, ok = "[]", true
+		}
 		if !ok {
 			http.NotFound(w, r)
 			return
@@ -424,5 +432,59 @@ func assertChecks(t *testing.T, checks []hark.Check, want ...string) {
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("\ngot:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestReviewsOnMyPR(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "author", "PullRequest", "/repos/acme/app/pulls/7", "", "2026-11-23T10:30:00Z") + `]`
+	routes["/repos/acme/app/pulls/7"] = `{"number":7,"state":"open","user":{"login":"dukex"},"html_url":"https://github.com/acme/app/pull/7"}`
+	routes["/repos/acme/app/pulls/7/reviews"] = `[
+		{"id":1,"user":{"login":"rita"},"state":"COMMENTED","body":"antiga","submitted_at":"2026-11-23T08:00:00Z","html_url":"r1"},
+		{"id":2,"user":{"login":"review-bot[bot]"},"state":"COMMENTED","body":"<!-- review-bot -->\n<!-- pass=review -->\n**Review** found 2 issues","submitted_at":"2026-11-23T10:05:00Z","html_url":"r2"},
+		{"id":3,"user":{"login":"dukex"},"state":"COMMENTED","body":"","submitted_at":"2026-11-23T10:10:00Z","html_url":"r3"},
+		{"id":4,"user":{"login":"rita"},"state":"COMMENTED","body":"","submitted_at":"2026-11-23T10:15:00Z","html_url":"r4"},
+		{"id":5,"user":{"login":"sam"},"state":"CHANGES_REQUESTED","body":"falta teste","submitted_at":"2026-11-23T10:20:00Z","html_url":"r5"},
+		{"id":6,"user":{"login":"sam"},"state":"APPROVED","body":"","submitted_at":"2026-11-23T10:25:00Z","html_url":"r6"}]`
+	routes["/repos/acme/app/pulls/7/comments"] = `[
+		{"pull_request_review_id":2,"body":"[1] token","created_at":"2026-11-23T10:05:00Z"},
+		{"pull_request_review_id":2,"body":"[2] botões","created_at":"2026-11-23T10:05:00Z"},
+		{"pull_request_review_id":4,"body":"Se o token demora, a tela fica vazia","created_at":"2026-11-23T10:15:00Z"},
+		{"pull_request_review_id":4,"body":"Detalhe, não bloqueia","created_at":"2026-11-23T10:15:00Z"}]`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:05:00Z github pr.reviewed acme/app#7 @review-bot[bot] "**Review** found 2 issues (2 inline comments)" r2`,
+		`2026-11-23T10:15:00Z github pr.reviewed acme/app#7 @rita "Se o token demora, a tela fica vazia (2 inline comments)" r4`,
+		`2026-11-23T10:20:00Z github pr.changes_requested acme/app#7 @sam "falta teste" r5`,
+		`2026-11-23T10:25:00Z github pr.approved acme/app#7 @sam r6`)
+	if q := f.queries["/repos/acme/app/pulls/7/comments"]; q != "per_page=100&since=2026-11-23T09%3A00%3A00Z" {
+		t.Errorf("review comments query %q", q)
+	}
+}
+
+func TestInlineLatestCommentIsCoveredByItsReview(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "author", "PullRequest", "/repos/acme/app/pulls/7", "/repos/acme/app/pulls/comments/40", "2026-11-23T10:15:00Z") + `]`
+	routes["/repos/acme/app/pulls/7"] = `{"number":7,"user":{"login":"dukex"},"html_url":"u"}`
+	routes["/repos/acme/app/pulls/7/reviews"] = `[{"id":4,"user":{"login":"rita"},"state":"COMMENTED","body":"ok","submitted_at":"2026-11-23T10:15:00Z","html_url":"r4"}]`
+	f := newFake(t, routes)
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:15:00Z github pr.reviewed acme/app#7 @rita "ok" r4`)
+}
+
+func TestReviewFailuresBecomeErrorEvents(t *testing.T) {
+	for _, broken := range []string{"/repos/acme/app/pulls/7/reviews", "/repos/acme/app/pulls/7/comments"} {
+		routes := baseRoutes()
+		routes["/notifications"] = `[` + thread("1", "author", "PullRequest", "/repos/acme/app/pulls/7", "", "2026-11-23T10:15:00Z") + `]`
+		routes["/repos/acme/app/pulls/7"] = `{"number":7,"user":{"login":"dukex"},"html_url":"u"}`
+		routes["/repos/acme/app/pulls/7/reviews"] = `[{"id":4,"user":{"login":"rita"},"state":"COMMENTED","body":"ok","submitted_at":"2026-11-23T10:15:00Z","html_url":"r4"}]`
+		routes[broken] = "nope"
+		f := newFake(t, routes)
+		events := f.watcher().poll(context.Background())
+		if len(events) != 1 || events[0].Kind != "error" || len(f.marked) != 0 {
+			t.Errorf("%s: events %v, marked %v", broken, lines(events), f.marked)
+		}
 	}
 }

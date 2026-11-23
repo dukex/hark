@@ -66,7 +66,11 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
      my issue or PR. Read the whole comment (`gh issue view` or `gh pr view
      --comments`), tell me what it asks for, and if it is about the work in this
      session, propose the change.
-   - `issue.closed`, `pr.closed`, `pr.merged`, `pr.opened`: tell me in one line.
+   - `pr.reviewed`, `pr.changes_requested` without `watching`: someone reviewed
+     my PR. Read the review and its inline comments (`gh pr view --comments`
+     and `gh api repos/<repo>/pulls/<number>/comments`) and tell me what it asks for.
+   - `pr.approved`, `issue.closed`, `pr.closed`, `pr.merged`, `pr.opened`: tell me
+     in one line.
    - Lines with `watching`: threads I follow but did not open. Mention them only
      if they @mention me or touch what we are working on.
    - `*.updated`: other activity, the text is GitHub's reason (for example
@@ -114,6 +118,7 @@ Known limits:
 | `issue.commented`, `pr.commented` | someone comments |
 | `issue.closed`, `pr.closed`, `pr.merged` | someone, or you, closes or merges |
 | `pr.opened` | you open a PR |
+| `pr.reviewed`, `pr.approved`, `pr.changes_requested` | someone reviews your PR, or one you watch; the text is the review body, or its first inline comment, plus the inline comment count |
 | `issue.updated`, `pr.updated` | other thread activity, with the notification reason as text |
 | `ci.failed`, `ci.succeeded`, `ci.cancelled`, `ci.skipped` | a workflow run you get notified about finished; the text is GitHub's title, with workflow and branch |
 | `ci.approval_requested` | someone asked you to approve a deployment |

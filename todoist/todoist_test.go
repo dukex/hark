@@ -67,8 +67,8 @@ func (f *fakeTodoist) watcher(t *testing.T) *Watcher {
 }
 
 func act(objectType, eventType, objectID, date, extra string) string {
-	return `{"id":2170587828302538600000000000000000000,"object_type":"` + objectType + `","event_type":"` + eventType +
-		`","object_id":"` + objectID + `","parent_item_id":"task9","event_date":"` + date + `","initiator_id":"16213870","extra_data":{` + extra + `}}`
+	return `{"id":99999999999999999999999999999999999999,"object_type":"` + objectType + `","event_type":"` + eventType +
+		`","object_id":"` + objectID + `","parent_item_id":"task9","event_date":"` + date + `","initiator_id":"1001","extra_data":{` + extra + `}}`
 }
 
 func page(next string, events ...string) string {
@@ -98,14 +98,14 @@ func TestTaskActivity(t *testing.T) {
 			act("item", "updated", "t2", "2026-11-23T20:20:00Z", `"content":"Renomeada","last_content":"Antiga"`)),
 		"p2": page("",
 			act("note", "added", "n1", "2026-11-23T20:15:00Z", `"content":"já mandei o link"`),
-			act("item", "completed", "t1", "2026-11-23T20:10:00Z", `"content":"Aprovar o gate"`),
-			act("item", "added", "t1", "2026-11-23T20:05:00.307Z", `"content":"Aprovar o gate","client":"Claude"`)),
+			act("item", "completed", "t1", "2026-11-23T20:10:00Z", `"content":"Pagar a conta de luz"`),
+			act("item", "added", "t1", "2026-11-23T20:05:00.307Z", `"content":"Pagar a conta de luz","client":"Claude"`)),
 	}, "")
 	w := f.watcher(t)
 
 	assertLines(t, w.poll(context.Background()),
-		`2026-11-23T20:05:00Z todoist task.created "Aprovar o gate" https://app.todoist.com/app/task/t1`,
-		`2026-11-23T20:10:00Z todoist task.completed "Aprovar o gate" https://app.todoist.com/app/task/t1`,
+		`2026-11-23T20:05:00Z todoist task.created "Pagar a conta de luz" https://app.todoist.com/app/task/t1`,
+		`2026-11-23T20:10:00Z todoist task.completed "Pagar a conta de luz" https://app.todoist.com/app/task/t1`,
 		`2026-11-23T20:15:00Z todoist task.commented "já mandei o link" https://app.todoist.com/app/task/task9`,
 		`2026-11-23T20:30:00Z todoist task.rescheduled "Revisar PR, due 2026-11-25" https://app.todoist.com/app/task/t3`,
 		`2026-11-23T20:40:00Z todoist task.rescheduled "Deploy, due removed" https://app.todoist.com/app/task/t4`)

@@ -85,7 +85,7 @@ func TestHarkTodoistEndToEnd(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/activities":
-			_, _ = w.Write([]byte(`{"results":[{"id":2170587828302538600000000000000000000,"object_type":"item","event_type":"completed","object_id":"t1","event_date":"` + soon + `","extra_data":{"content":"Aprovar o gate"}}],"next_cursor":null}`))
+			_, _ = w.Write([]byte(`{"results":[{"id":99999999999999999999999999999999999999,"object_type":"item","event_type":"completed","object_id":"t1","event_date":"` + soon + `","extra_data":{"content":"Pagar a conta de luz"}}],"next_cursor":null}`))
 		case "/tasks/filter":
 			_, _ = w.Write([]byte(`{"results":[{"id":"t2","content":"Pagar boleto"}],"next_cursor":null}`))
 		default:
@@ -103,7 +103,7 @@ func TestHarkTodoistEndToEnd(t *testing.T) {
 
 	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
 	if code != 0 || stderr.Len() != 0 || len(lines) != 2 ||
-		lines[0] != soon+` todoist task.completed "Aprovar o gate" https://app.todoist.com/app/task/t1` ||
+		lines[0] != soon+` todoist task.completed "Pagar a conta de luz" https://app.todoist.com/app/task/t1` ||
 		!strings.HasSuffix(lines[1], ` todoist task.due "Pagar boleto" https://app.todoist.com/app/task/t2`) {
 		t.Errorf("exit %d\nstderr: %s\nstdout:\n%s", code, stderr.String(), stdout.String())
 	}

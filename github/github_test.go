@@ -16,13 +16,16 @@ var start = time.Date(2026, 11, 23, 10, 0, 0, 0, time.UTC)
 
 type fakeGitHub struct {
 	*httptest.Server
-	mu     sync.Mutex
-	routes map[string]string
-	hits   map[string]int
+	mu         sync.Mutex
+	routes     map[string]string
+	hits       map[string]int
+	query      string
+	marked     []string
+	markStatus int
 }
 
 func newFake(t *testing.T, routes map[string]string) *fakeGitHub {
-	f := &fakeGitHub{routes: routes, hits: map[string]int{}}
+	f := &fakeGitHub{routes: routes, hits: map[string]int{}, markStatus: http.StatusResetContent}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -30,6 +33,14 @@ func newFake(t *testing.T, routes map[string]string) *fakeGitHub {
 		if r.Header.Get("Authorization") != "Bearer secret" {
 			http.Error(w, "bad credentials", http.StatusUnauthorized)
 			return
+		}
+		if id, ok := strings.CutPrefix(r.URL.Path, "/notifications/threads/"); ok && r.Method == http.MethodPatch {
+			f.marked = append(f.marked, id)
+			w.WriteHeader(f.markStatus)
+			return
+		}
+		if r.URL.Path == "/notifications" {
+			f.query = r.URL.RawQuery
 		}
 		body, ok := f.routes[r.URL.Path]
 		if !ok {
@@ -51,7 +62,7 @@ func (f *fakeGitHub) set(path, body string) {
 func (f *fakeGitHub) watcher() *Watcher {
 	w := New(f.URL, "secret")
 	w.me = "dukex"
-	w.started, w.since = start, start
+	w.started = start
 	w.Now = func() time.Time { return start.Add(time.Hour) }
 	return w
 }
@@ -70,9 +81,13 @@ func thread(id, reason, kind, subjectPath, commentPath, updated string) string {
 		latest = `"{{API}}` + commentPath + `"`
 	}
 	repo := strings.Join(strings.Split(subjectPath, "/")[2:4], "/")
-	return `{"id":"` + id + `","reason":"` + reason + `","updated_at":"` + updated + `",
+	return `{"id":"` + id + `","reason":"` + reason + `","updated_at":"` + updated + `","last_read_at":null,
 		"repository":{"full_name":"` + repo + `"},
 		"subject":{"type":"` + kind + `","url":"{{API}}` + subjectPath + `","latest_comment_url":` + latest + `}}`
+}
+
+func readAt(thread, at string) string {
+	return strings.Replace(thread, `"last_read_at":null`, `"last_read_at":"`+at+`"`, 1)
 }
 
 func lines(events []hark.Event) []string {
@@ -113,21 +128,43 @@ func TestCommentOnMyPR(t *testing.T) {
 		`2026-11-23T10:06:00Z github pr.commented dukex/foo#12 @bob "lgtm" https://github.com/dukex/foo/pull/12#issuecomment-7`)
 }
 
-func TestCommentIsReportedOnce(t *testing.T) {
+func TestHandledThreadsAreMarkedRead(t *testing.T) {
 	routes := baseRoutes()
-	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "/repos/dukex/foo/issues/comments/9", "2026-11-23T10:05:00Z") + `]`
-	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"state":"open","user":{"login":"dukex"},"created_at":"2026-11-01T00:00:00Z","html_url":"u"}`
-	routes["/repos/dukex/foo/issues/comments/9"] = `{"user":{"login":"alice"},"body":"oi","created_at":"2026-11-23T10:05:00Z","html_url":"c9"}`
+	routes["/notifications"] = `[` +
+		thread("2", "subscribed", "Release", "/repos/dukex/foo/releases/1", "", "2026-11-23T10:06:00Z") + `,` +
+		thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:05:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"user":{"login":"dukex"},"html_url":"u"}`
 	f := newFake(t, routes)
-	w := f.watcher()
 
-	w.poll(context.Background())
-	assertLines(t, w.poll(context.Background()))
+	f.watcher().poll(context.Background())
+	if strings.Join(f.marked, ",") != "1" {
+		t.Errorf("marked %v, want only the issue thread", f.marked)
+	}
 }
 
-func TestCommentFromBeforeStartIsIgnored(t *testing.T) {
+func TestMarkReadFailureBecomesErrorEvent(t *testing.T) {
 	routes := baseRoutes()
-	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "/repos/dukex/foo/issues/comments/9", "2026-11-23T10:05:00Z") + `]`
+	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:05:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"user":{"login":"dukex"},"html_url":"u"}`
+	f := newFake(t, routes)
+	f.markStatus = http.StatusForbidden
+
+	assertLines(t, f.watcher().poll(context.Background()),
+		`2026-11-23T10:05:00Z github issue.updated dukex/foo#3 "author" u`,
+		`2026-11-23T11:00:00Z github error "PATCH /notifications/threads/1: 403 Forbidden"`)
+}
+
+func TestOnlyUnreadFromTheLastHourAreRequested(t *testing.T) {
+	f := newFake(t, baseRoutes())
+	f.watcher().poll(context.Background())
+	if f.query != "since=2026-11-23T09%3A00%3A00Z" {
+		t.Errorf("query %q", f.query)
+	}
+}
+
+func TestCommentAlreadyReadIsIgnored(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + readAt(thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "/repos/dukex/foo/issues/comments/9", "2026-11-23T10:05:00Z"), "2026-11-23T09:30:00Z") + `]`
 	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"state":"open","user":{"login":"dukex"},"created_at":"2026-11-01T00:00:00Z","html_url":"u"}`
 	routes["/repos/dukex/foo/issues/comments/9"] = `{"user":{"login":"alice"},"body":"velho","created_at":"2026-11-23T09:00:00Z","html_url":"c9"}`
 	f := newFake(t, routes)
@@ -186,6 +223,9 @@ func TestFailuresBecomeErrorEvents(t *testing.T) {
 			if len(events) != 1 || events[0].Kind != "error" {
 				t.Fatalf("want one error event, got %v", lines(events))
 			}
+			if len(f.marked) != 0 {
+				t.Errorf("failed thread marked read: %v", f.marked)
+			}
 		})
 	}
 }
@@ -243,9 +283,9 @@ func TestClosedWithCommentReportsBoth(t *testing.T) {
 		`2026-11-23T10:07:00Z github issue.closed dukex/foo#3 @carol u`)
 }
 
-func TestCloseFromBeforeStartIsIgnored(t *testing.T) {
+func TestCloseAlreadyReadIsIgnored(t *testing.T) {
 	routes := baseRoutes()
-	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:07:00Z") + `]`
+	routes["/notifications"] = `[` + readAt(thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:07:00Z"), "2026-11-21T00:00:00Z") + `]`
 	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"state":"closed","user":{"login":"dukex"},"closed_at":"2026-11-20T00:00:00Z","html_url":"u"}`
 	f := newFake(t, routes)
 
@@ -315,12 +355,4 @@ func TestWatchedThreadsAreMarked(t *testing.T) {
 	assertLines(t, f.watcher().poll(context.Background()),
 		`2026-11-23T10:10:00Z github issue.commented acme/lib#7 @frank watching "@dukex olha isso" c70`,
 		`2026-11-23T10:11:00Z github pr.merged acme/lib#40 @erin watching https://github.com/acme/lib/pull/40`)
-}
-
-func TestThreadUpdatedBeforeStartIsIgnored(t *testing.T) {
-	routes := baseRoutes()
-	routes["/notifications"] = `[` + thread("1", "review_requested", "PullRequest", "/repos/dukex/foo/pulls/1", "", "2026-11-23T09:59:30Z") + `]`
-	routes["/repos/dukex/foo/pulls/1"] = `{"number":1,"user":{"login":"erin"},"html_url":"u"}`
-	f := newFake(t, routes)
-	assertLines(t, f.watcher().poll(context.Background()))
 }

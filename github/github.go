@@ -13,7 +13,7 @@ import (
 	"github.com/dukex/hark"
 )
 
-const overlap = time.Minute
+const backlog = time.Hour
 
 type Watcher struct {
 	API      string
@@ -24,8 +24,6 @@ type Watcher struct {
 
 	me        string
 	started   time.Time
-	since     time.Time
-	seen      map[string]time.Time
 	lastEvent int64
 }
 
@@ -36,7 +34,6 @@ func New(api, token string) *Watcher {
 		Client:   http.DefaultClient,
 		Interval: time.Minute,
 		Now:      time.Now,
-		seen:     map[string]time.Time{},
 	}
 }
 
@@ -48,6 +45,7 @@ type notification struct {
 	ID         string    `json:"id"`
 	Reason     string    `json:"reason"`
 	UpdatedAt  time.Time `json:"updated_at"`
+	LastReadAt time.Time `json:"last_read_at"`
 	Repository struct {
 		FullName string `json:"full_name"`
 	} `json:"repository"`
@@ -78,11 +76,10 @@ type comment struct {
 
 func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 	var me user
-	if err := w.get(ctx, w.API+"/user", &me); err != nil {
+	if err := w.do(ctx, http.MethodGet, w.API+"/user", &me); err != nil {
 		return err
 	}
 	w.me, w.started = me.Login, w.Now()
-	w.since = w.started
 	for {
 		for _, e := range w.poll(ctx) {
 			emit(e)
@@ -120,23 +117,21 @@ func (w *Watcher) poll(ctx context.Context) []hark.Event {
 }
 
 func (w *Watcher) notifications(ctx context.Context) []hark.Event {
-	polledAt := w.Now()
 	var threads []notification
-	q := url.Values{"all": {"true"}, "since": {w.since.Add(-overlap).Format(time.RFC3339)}}
-	if err := w.get(ctx, w.API+"/notifications?"+q.Encode(), &threads); err != nil {
+	q := url.Values{"since": {w.started.Add(-backlog).Format(time.RFC3339)}}
+	if err := w.do(ctx, http.MethodGet, w.API+"/notifications?"+q.Encode(), &threads); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
 	var events []hark.Event
 	for i := len(threads) - 1; i >= 0; i-- {
 		events = append(events, w.thread(ctx, threads[i])...)
 	}
-	w.since = polledAt
 	return events
 }
 
 func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 	var list []ownEvent
-	if err := w.get(ctx, w.API+"/users/"+w.me+"/events", &list); err != nil {
+	if err := w.do(ctx, http.MethodGet, w.API+"/users/"+w.me+"/events", &list); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
 	var events []hark.Event
@@ -160,7 +155,7 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 			continue
 		}
 		var s subject
-		if err := w.get(ctx, target.URL, &s); err != nil {
+		if err := w.do(ctx, http.MethodGet, target.URL, &s); err != nil {
 			events = append(events, w.failure(err))
 			continue
 		}
@@ -177,22 +172,19 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 
 func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
 	kind, ok := kinds[n.Subject.Type]
-	prev, known := w.seen[n.ID]
-	if !known {
-		prev = w.started
-	}
-	if !ok || !n.UpdatedAt.After(prev) {
+	if !ok {
 		return nil
 	}
+	prev := n.LastReadAt
 	var s subject
-	if err := w.get(ctx, n.Subject.URL, &s); err != nil {
+	if err := w.do(ctx, http.MethodGet, n.Subject.URL, &s); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
 	base := hark.Event{Provider: "github", Repo: n.Repository.FullName, Number: s.Number, Watching: s.User.Login != w.me}
 	var events []hark.Event
 	if strings.Contains(n.Subject.LatestCommentURL, "/comments/") {
 		var c comment
-		if err := w.get(ctx, n.Subject.LatestCommentURL, &c); err != nil {
+		if err := w.do(ctx, http.MethodGet, n.Subject.LatestCommentURL, &c); err != nil {
 			return []hark.Event{w.failure(err)}
 		}
 		if c.CreatedAt.After(prev) {
@@ -214,7 +206,9 @@ func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
 		e.Time, e.Kind, e.Text, e.URL = n.UpdatedAt, kind+".updated", n.Reason, s.HTMLURL
 		events = append(events, e)
 	}
-	w.seen[n.ID] = n.UpdatedAt
+	if err := w.do(ctx, http.MethodPatch, w.API+"/notifications/threads/"+n.ID, nil); err != nil {
+		events = append(events, w.failure(err))
+	}
 	return events
 }
 
@@ -222,8 +216,8 @@ func (w *Watcher) failure(err error) hark.Event {
 	return hark.Event{Time: w.Now(), Provider: "github", Kind: "error", Text: err.Error()}
 }
 
-func (w *Watcher) get(ctx context.Context, url string, v any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (w *Watcher) do(ctx context.Context, method, url string, v any) error {
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return err
 	}
@@ -235,8 +229,11 @@ func (w *Watcher) get(ctx context.Context, url string, v any) error {
 		return err
 	}
 	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: %s", req.URL.Path, res.Status)
+	if res.StatusCode/100 != 2 {
+		return fmt.Errorf("%s %s: %s", method, req.URL.Path, res.Status)
+	}
+	if v == nil {
+		return nil
 	}
 	return json.NewDecoder(res.Body).Decode(v)
 }

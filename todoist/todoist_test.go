@@ -278,3 +278,27 @@ func TestStateSaveFailureBecomesErrorEvent(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestDoctor(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, `{"results":[]}`)
+	state := filepath.Join(t.TempDir(), "todoist.json")
+	checks := New(f.URL, "secret", state).Doctor(context.Background())
+	var got []string
+	for _, c := range checks {
+		if c.Err != nil {
+			t.Errorf("%s failed: %v", c.Name, c.Err)
+		}
+		got = append(got, c.Name+": "+c.Detail)
+	}
+	if strings.Join(got, "|") != "token: valid|activity log: readable|state: "+state {
+		t.Errorf("got %v", got)
+	}
+
+	if checks := New(f.URL, "wrong", state).Doctor(context.Background()); len(checks) != 1 || checks[0].Err == nil {
+		t.Errorf("bad token: %+v", checks)
+	}
+	noActivity := newFake(t, map[string]string{}, `{"results":[]}`)
+	if checks := New(noActivity.URL, "secret", state).Doctor(context.Background()); len(checks) != 3 || checks[1].Err == nil {
+		t.Errorf("activity log failure not reported: %+v", checks)
+	}
+}

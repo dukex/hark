@@ -396,3 +396,33 @@ func TestNeverReadThreadIgnoresActivityBeforeTheWindow(t *testing.T) {
 	assertLines(t, f.watcher().poll(context.Background()),
 		`2026-11-23T10:05:00Z github pr.updated acme/lib#126 watching "review_requested" https://github.com/acme/lib/pull/126`)
 }
+
+func TestDoctor(t *testing.T) {
+	f := newFake(t, baseRoutes())
+	assertChecks(t, New(f.URL, "secret").Doctor(context.Background()),
+		"token: logged in as dukex", "notifications: readable")
+
+	delete(f.routes, "/notifications")
+	checks := New(f.URL, "secret").Doctor(context.Background())
+	if len(checks) != 2 || checks[1].Err == nil {
+		t.Errorf("notifications failure not reported: %+v", checks)
+	}
+	checks = New(f.URL, "wrong").Doctor(context.Background())
+	if len(checks) != 1 || checks[0].Name != "token" || checks[0].Err == nil {
+		t.Errorf("bad token: %+v", checks)
+	}
+}
+
+func assertChecks(t *testing.T, checks []hark.Check, want ...string) {
+	t.Helper()
+	var got []string
+	for _, c := range checks {
+		if c.Err != nil {
+			t.Errorf("%s failed: %v", c.Name, c.Err)
+		}
+		got = append(got, c.Name+": "+c.Detail)
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("\ngot:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}

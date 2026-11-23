@@ -8,8 +8,17 @@ import (
 )
 
 // Provider watches an external service and calls emit once per event until ctx is done.
+// Doctor checks that the provider is set up to work, for hark doctor.
 type Provider interface {
 	Watch(ctx context.Context, emit func(Event)) error
+	Doctor(ctx context.Context) []Check
+}
+
+// Check is one line of hark doctor: Detail says what works, Err what does not.
+type Check struct {
+	Name   string
+	Detail string
+	Err    error
 }
 
 // Event is one thing that happened on a provider, printed as a single line.

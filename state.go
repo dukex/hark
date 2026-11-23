@@ -47,3 +47,9 @@ func SaveState(path string, v any) error {
 	}
 	return os.Rename(path+".tmp", path)
 }
+
+// CheckState reports whether the state file at path can be read.
+func CheckState(path string) Check {
+	var v json.RawMessage
+	return Check{Name: "state", Detail: path, Err: LoadState(path, &v)}
+}

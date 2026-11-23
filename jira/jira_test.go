@@ -271,3 +271,30 @@ func TestStateSaveFailureBecomesErrorEvent(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestDoctor(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")})
+	state := filepath.Join(t.TempDir(), "jira.json")
+	checks := New(f.URL, "duke@example.com", "secret", state).Doctor(context.Background())
+	var got []string
+	for _, c := range checks {
+		if c.Err != nil {
+			t.Errorf("%s failed: %v", c.Name, c.Err)
+		}
+		got = append(got, c.Name+": "+c.Detail)
+	}
+	if strings.Join(got, "|") != "login: logged in as Duke|search: issues you follow are searchable|state: "+state {
+		t.Errorf("got %v", got)
+	}
+	if !strings.Contains(f.queries[0].Get("jql"), "currentUser()") || f.queries[0].Get("maxResults") != "1" {
+		t.Errorf("search query %v", f.queries[0])
+	}
+
+	if checks := New(f.URL, "duke@example.com", "wrong", state).Doctor(context.Background()); len(checks) != 1 || checks[0].Err == nil {
+		t.Errorf("bad login: %+v", checks)
+	}
+	noSearch := newFake(t, map[string]string{})
+	if checks := New(noSearch.URL, "duke@example.com", "secret", state).Doctor(context.Background()); len(checks) != 3 || checks[1].Err == nil {
+		t.Errorf("search failure not reported: %+v", checks)
+	}
+}

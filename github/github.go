@@ -263,3 +263,15 @@ func (w *Watcher) do(ctx context.Context, method, url string, v any) error {
 	}
 	return json.NewDecoder(res.Body).Decode(v)
 }
+
+func (w *Watcher) Doctor(ctx context.Context) []hark.Check {
+	var me user
+	if err := w.do(ctx, http.MethodGet, w.API+"/user", &me); err != nil {
+		return []hark.Check{{Name: "token", Err: err}}
+	}
+	var threads []notification
+	return []hark.Check{
+		{Name: "token", Detail: "logged in as " + me.Login},
+		{Name: "notifications", Detail: "readable", Err: w.do(ctx, http.MethodGet, w.API+"/notifications?per_page=1", &threads)},
+	}
+}

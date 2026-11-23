@@ -28,7 +28,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 Paste this prompt into the session:
 
 ```text
-Watch my GitHub activity with hark while we work.
+Watch my GitHub and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -54,7 +54,14 @@ Watch my GitHub activity with hark while we work.
      waiting for that workflow.
    - `error`: hark keeps retrying. Tell me only if it repeats.
    - A line starting with `hark:` means hark stopped. Show it to me.
-4. Never reply, close or change anything on GitHub without asking me first.
+4. If `TODOIST_API_TOKEN` is set, start a second monitor the same way with
+   `hark todoist 2>&1`, described as "Todoist activity":
+   - `task.due`: remind me of what is due today, once.
+   - `task.commented`: tell me what the comment says.
+   - `task.created`, `task.completed`, `task.rescheduled`: stay quiet unless
+     the task is about the work in this session.
+5. Never reply, close or change anything on GitHub or Todoist without asking
+   me first.
 ```
 
 ## GitHub
@@ -81,6 +88,21 @@ Known limits:
 | `issue.updated`, `pr.updated` | other thread activity, with the notification reason as text |
 | `ci.failed`, `ci.succeeded`, `ci.cancelled`, `ci.skipped` | a workflow run you get notified about finished; the text is GitHub's title, with workflow and branch |
 | `ci.approval_requested` | someone asked you to approve a deployment |
+| `error` | a request failed; hark keeps polling |
+
+## Todoist
+
+`hark todoist` needs `TODOIST_API_TOKEN`, from Todoist settings, Integrations, Developer. It polls the activity log every minute, which depends on your Todoist plan having activity history.
+
+hark keeps its cursor in `~/.local/state/hark/todoist.json` (or `$XDG_STATE_HOME/hark`), so a restart continues where it stopped without repeating events. The first run picks up the last hour.
+
+| Kind | When |
+|------|------|
+| `task.created` | a task is added |
+| `task.completed` | a task is completed |
+| `task.rescheduled` | a task's due date changes; the text ends with the new date, or `removed` |
+| `task.commented` | someone comments on a task |
+| `task.due` | once a day, for each task due today |
 | `error` | a request failed; hark keeps polling |
 
 ## Adding a provider

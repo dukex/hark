@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/dukex/hark"
 	"github.com/dukex/hark/github"
+	"github.com/dukex/hark/todoist"
 	"github.com/dukex/hark/update"
 )
 
@@ -33,7 +35,8 @@ var (
 )
 
 var providers = map[string]func(getenv func(string) string) (hark.Provider, error){
-	"github": newGitHub,
+	"github":  newGitHub,
+	"todoist": newTodoist,
 }
 
 func newGitHub(getenv func(string) string) (hark.Provider, error) {
@@ -50,6 +53,18 @@ func newGitHub(getenv func(string) string) (hark.Provider, error) {
 		api = "https://api.github.com"
 	}
 	return github.New(api, token), nil
+}
+
+func newTodoist(getenv func(string) string) (hark.Provider, error) {
+	token := getenv("TODOIST_API_TOKEN")
+	if token == "" {
+		return nil, fmt.Errorf("set TODOIST_API_TOKEN to a token from Todoist settings, Integrations, Developer")
+	}
+	state, err := hark.StatePath("todoist")
+	if err != nil {
+		return nil, err
+	}
+	return todoist.New(cmp.Or(getenv("HARK_TODOIST_API"), "https://api.todoist.com/api/v1"), token, state), nil
 }
 
 func main() {

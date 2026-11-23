@@ -23,7 +23,7 @@ func TestUsage(t *testing.T) {
 		if code := run(context.Background(), args, env(nil), nil, &stderr); code != 2 {
 			t.Errorf("%v: exit %d, want 2", args, code)
 		}
-		if stderr.String() != "usage: hark <github>\n" {
+		if stderr.String() != "usage: hark <github|todoist>\n" {
 			t.Errorf("%v: stderr %q", args, stderr.String())
 		}
 	}

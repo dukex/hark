@@ -1,0 +1,280 @@
+package todoist
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/dukex/hark"
+)
+
+var brt = time.FixedZone("BRT", -3*3600)
+var now = time.Date(2026, 11, 23, 18, 0, 0, 0, brt)
+
+type fakeTodoist struct {
+	*httptest.Server
+	mu      sync.Mutex
+	pages   map[string]string
+	today   string
+	queries []url.Values
+}
+
+func newFake(t *testing.T, pages map[string]string, today string) *fakeTodoist {
+	f := &fakeTodoist{pages: pages, today: today}
+	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if r.Header.Get("Authorization") != "Bearer secret" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch r.URL.Path {
+		case "/activities":
+			f.queries = append(f.queries, r.URL.Query())
+			body, ok := f.pages[r.URL.Query().Get("cursor")]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write([]byte(body))
+		case "/tasks/filter":
+			if r.URL.Query().Get("query") != "today" || f.today == "" {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write([]byte(f.today))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(f.Close)
+	return f
+}
+
+func (f *fakeTodoist) watcher(t *testing.T) *Watcher {
+	w := New(f.URL, "secret", filepath.Join(t.TempDir(), "todoist.json"))
+	w.Now = func() time.Time { return now }
+	w.state.Cursor = time.Date(2026, 11, 23, 20, 0, 0, 0, time.UTC)
+	w.state.DueDay = "2026-11-23"
+	return w
+}
+
+func act(objectType, eventType, objectID, date, extra string) string {
+	return `{"id":2170587828302538600000000000000000000,"object_type":"` + objectType + `","event_type":"` + eventType +
+		`","object_id":"` + objectID + `","parent_item_id":"task9","event_date":"` + date + `","initiator_id":"16213870","extra_data":{` + extra + `}}`
+}
+
+func page(next string, events ...string) string {
+	cursor := "null"
+	if next != "" {
+		cursor = `"` + next + `"`
+	}
+	return `{"results":[` + strings.Join(events, ",") + `],"next_cursor":` + cursor + `}`
+}
+
+func assertLines(t *testing.T, events []hark.Event, want ...string) {
+	t.Helper()
+	var got []string
+	for _, e := range events {
+		got = append(got, e.String())
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("\ngot:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestTaskActivity(t *testing.T) {
+	f := newFake(t, map[string]string{
+		"": page("p2",
+			act("item", "updated", "t4", "2026-11-23T20:40:00Z", `"content":"Deploy","due_date":null,"last_due_date":"2026-11-24T02:59:59.000000Z"`),
+			act("item", "updated", "t3", "2026-11-23T20:30:00Z", `"content":"Revisar PR","due_date":"2026-11-26T02:59:59.000000Z","last_due_date":"2026-11-25T02:59:59.000000Z"`),
+			act("item", "updated", "t2", "2026-11-23T20:20:00Z", `"content":"Renomeada","last_content":"Antiga"`)),
+		"p2": page("",
+			act("note", "added", "n1", "2026-11-23T20:15:00Z", `"content":"já mandei o link"`),
+			act("item", "completed", "t1", "2026-11-23T20:10:00Z", `"content":"Aprovar o gate"`),
+			act("item", "added", "t1", "2026-11-23T20:05:00.307Z", `"content":"Aprovar o gate","client":"Claude"`)),
+	}, "")
+	w := f.watcher(t)
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T20:05:00Z todoist task.created "Aprovar o gate" https://app.todoist.com/app/task/t1`,
+		`2026-11-23T20:10:00Z todoist task.completed "Aprovar o gate" https://app.todoist.com/app/task/t1`,
+		`2026-11-23T20:15:00Z todoist task.commented "já mandei o link" https://app.todoist.com/app/task/task9`,
+		`2026-11-23T20:30:00Z todoist task.rescheduled "Revisar PR, due 2026-11-25" https://app.todoist.com/app/task/t3`,
+		`2026-11-23T20:40:00Z todoist task.rescheduled "Deploy, due removed" https://app.todoist.com/app/task/t4`)
+
+	q := f.queries[0]
+	if q.Get("object_event_types") != `["item:added","item:completed","item:updated","note:added"]` ||
+		q.Get("date_from") != "2026-11-23T20:00:00Z" || q.Get("annotate_notes") != "true" || f.queries[1].Get("cursor") != "p2" {
+		t.Errorf("queries %v", f.queries)
+	}
+}
+
+func TestActivityIsReportedOnce(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("",
+		act("item", "added", "t2", "2026-11-23T20:05:00Z", `"content":"B"`),
+		act("item", "added", "t1", "2026-11-23T20:05:00Z", `"content":"A"`),
+		act("item", "added", "t0", "2026-11-23T19:00:00Z", `"content":"antes do cursor"`))}, "")
+	w := f.watcher(t)
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T20:05:00Z todoist task.created "B" https://app.todoist.com/app/task/t2`,
+		`2026-11-23T20:05:00Z todoist task.created "A" https://app.todoist.com/app/task/t1`)
+	assertLines(t, w.poll(context.Background()))
+	if got := f.queries[1].Get("date_from"); got != "2026-11-23T20:05:00Z" {
+		t.Errorf("second poll date_from %q", got)
+	}
+}
+
+func TestUnparsableDueDateIsShownAsIs(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("",
+		act("item", "updated", "t1", "2026-11-23T20:05:00Z", `"content":"X","due_date":"amanhã"`))}, "")
+	assertLines(t, f.watcher(t).poll(context.Background()),
+		`2026-11-23T20:05:00Z todoist task.rescheduled "X, due amanhã" https://app.todoist.com/app/task/t1`)
+}
+
+func TestTasksDueTodayOncePerDay(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, `{"results":[{"id":"t7","content":"Pagar boleto"},{"id":"t8","content":"Ligar"}],"next_cursor":null}`)
+	w := f.watcher(t)
+	w.state.DueDay = "2026-11-22"
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T21:00:00Z todoist task.due "Pagar boleto" https://app.todoist.com/app/task/t7`,
+		`2026-11-23T21:00:00Z todoist task.due "Ligar" https://app.todoist.com/app/task/t8`)
+	assertLines(t, w.poll(context.Background()))
+}
+
+func TestFailuresBecomeErrorEvents(t *testing.T) {
+	cases := map[string]struct {
+		pages  map[string]string
+		today  string
+		dueDay string
+	}{
+		"activity unavailable": {pages: map[string]string{}, dueDay: "2026-11-23"},
+		"second page missing":  {pages: map[string]string{"": page("gone")}, dueDay: "2026-11-23"},
+		"bad json":             {pages: map[string]string{"": "nope"}, dueDay: "2026-11-23"},
+		"today unavailable":    {pages: map[string]string{"": page("")}, dueDay: "2026-11-22"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := newFake(t, c.pages, c.today).watcher(t)
+			w.state.DueDay = c.dueDay
+			events := w.poll(context.Background())
+			if len(events) != 1 || events[0].Kind != "error" {
+				t.Fatalf("want one error event, got %v", events)
+			}
+		})
+	}
+}
+
+func TestUnreachableAPI(t *testing.T) {
+	for _, api := range []string{"http://127.0.0.1:1", "http://bad host"} {
+		w := New(api, "secret", "")
+		w.state.DueDay = time.Now().Format(time.DateOnly)
+		if events := w.poll(context.Background()); len(events) != 1 || events[0].Kind != "error" {
+			t.Fatalf("%s: got %v", api, events)
+		}
+	}
+}
+
+func TestWatchResumesFromSavedState(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("",
+		act("item", "completed", "t1", "2026-11-23T20:10:00Z", `"content":"A"`))}, `{"results":[]}`)
+	state := filepath.Join(t.TempDir(), "todoist.json")
+	if err := hark.SaveState(state, map[string]any{"cursor": "2026-11-23T20:00:00Z", "due_day": "2026-11-23"}); err != nil {
+		t.Fatal(err)
+	}
+	w := New(f.URL+"/", "secret", state)
+	w.Now = func() time.Time { return now }
+	w.Interval = time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	var got []hark.Event
+	err := w.Watch(ctx, func(e hark.Event) {
+		got = append(got, e)
+		cancel()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertLines(t, got, `2026-11-23T20:10:00Z todoist task.completed "A" https://app.todoist.com/app/task/t1`)
+
+	var saved struct {
+		Cursor time.Time `json:"cursor"`
+		Seen   []string  `json:"seen"`
+	}
+	if err := hark.LoadState(state, &saved); err != nil || !saved.Cursor.Equal(time.Date(2026, 11, 23, 20, 10, 0, 0, time.UTC)) || len(saved.Seen) != 1 {
+		t.Errorf("saved %+v, %v", saved, err)
+	}
+}
+
+func TestWatchStartsOneHourBackWithoutState(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, `{"results":[]}`)
+	w := New(f.URL, "secret", filepath.Join(t.TempDir(), "todoist.json"))
+	w.Now = func() time.Time { return now }
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
+		t.Fatal(err)
+	}
+	if want := now.Add(-time.Hour); !w.state.Cursor.Equal(want) {
+		t.Errorf("cursor %v, want %v", w.state.Cursor, want)
+	}
+}
+
+func TestWatchPollsAgainAfterInterval(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, `{"results":[]}`)
+	w := New(f.URL, "secret", filepath.Join(t.TempDir(), "todoist.json"))
+	w.Now = func() time.Time { return now }
+	w.Interval = time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	go func() {
+		for {
+			f.mu.Lock()
+			n := len(f.queries)
+			f.mu.Unlock()
+			if n >= 2 {
+				cancel()
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWatchFailsOnCorruptState(t *testing.T) {
+	dir := t.TempDir()
+	w := New("http://unused", "secret", dir)
+	if err := w.Watch(context.Background(), func(hark.Event) {}); err == nil {
+		t.Fatal("want error reading a directory as state")
+	}
+}
+
+func TestStateSaveFailureBecomesErrorEvent(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, `{"results":[]}`)
+	dir := filepath.Join(t.TempDir(), "ro")
+	if err := os.Mkdir(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	w := New(f.URL, "secret", filepath.Join(dir, "todoist.json"))
+	w.Now = func() time.Time { return now }
+	ctx, cancel := context.WithCancel(context.Background())
+	var got []hark.Event
+	_ = w.Watch(ctx, func(e hark.Event) {
+		got = append(got, e)
+		cancel()
+	})
+	if len(got) != 1 || got[0].Kind != "error" {
+		t.Fatalf("got %v", got)
+	}
+}

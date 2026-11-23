@@ -12,7 +12,40 @@ $ hark github
 ## Install
 
 ```
-go install github.com/dukex/hark/cmd/hark@latest
+curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh
+```
+
+It downloads the latest release for your OS and architecture (Linux or macOS, amd64 or arm64), checks it against `checksums.txt` and installs it to `~/.local/bin`. Set `HARK_INSTALL_DIR` to install elsewhere, or `HARK_DOWNLOAD_URL=https://github.com/dukex/hark/releases/download/v0.1.0` to pin a version.
+
+With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
+
+## Use it from Claude Code or another agent
+
+Paste this prompt into the session:
+
+```text
+Watch my GitHub activity with hark while we work.
+
+1. If `hark` is not on PATH, install it with
+   `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
+2. Start a background monitor running `hark github 2>&1`, described as
+   "GitHub activity on my issues and PRs", with the longest timeout allowed.
+   When it expires, start it again. If your tool has no monitor, run it in
+   the background and read its output every few minutes.
+3. Each line is one event:
+   `<time> github <kind> <repo>#<number> @<actor> [watching] "<text>" <url>`.
+   - `issue.commented` / `pr.commented` without `watching`: someone commented on
+     my issue or PR. Read the whole comment (`gh issue view` or `gh pr view
+     --comments`), tell me what it asks for, and if it is about the work in this
+     session, propose the change.
+   - `issue.closed`, `pr.closed`, `pr.merged`, `pr.opened`: tell me in one line.
+   - Lines with `watching`: threads I follow but did not open. Mention them only
+     if they @mention me or touch what we are working on.
+   - `*.updated`: other activity, the text is GitHub's reason (for example
+     `review_requested`). Tell me about review requests.
+   - `error`: hark keeps retrying. Tell me only if it repeats.
+   - A line starting with `hark:` means hark stopped. Show it to me.
+4. Never reply, close or change anything on GitHub without asking me first.
 ```
 
 ## GitHub

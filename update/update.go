@@ -28,14 +28,17 @@ type Updater struct {
 var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
 // Run returns the tag it installed, or "" when current is already the latest.
+// An unparsable current version, such as a dev build, is always updated.
 func (u Updater) Run(ctx context.Context, current string) (string, error) {
 	tag, err := u.latest(ctx)
 	if err != nil {
 		return "", err
 	}
 	latest, ok := parse(tag)
-	running, ok2 := parse(current)
-	if !ok || !ok2 || slices.Compare(latest, running) <= 0 {
+	if !ok {
+		return "", nil
+	}
+	if running, ok := parse(current); ok && slices.Compare(latest, running) <= 0 {
 		return "", nil
 	}
 	asset := fmt.Sprintf("hark_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)

@@ -58,8 +58,10 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
    monitors for providers whose checks all pass.
    Start a background monitor running `hark github 2>&1`, described as
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
-   When it expires, start it again. If your tool has no monitor, run it in
-   the background and read its output every few minutes.
+   When it expires, start it again. If more than an hour passed since it
+   stopped, add `--since <time of its last line that is not an error>`, so
+   nothing in between is lost. If your tool has no monitor, run it in the
+   background and read its output every few minutes.
 3. Each line is one event:
    `<time> github <kind> <repo>#<number> @<actor> [watching] "<text>" <url>`.
    - `issue.commented` / `pr.commented` without `watching`: someone commented on
@@ -84,7 +86,9 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
      what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
-   `hark jira 2>&1`, described as "Jira activity on my issues":
+   `hark jira 2>&1`, described as "Jira activity on my issues". Jira and
+   Todoist resume where they stopped on their own, so re-arm them without
+   `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
@@ -98,6 +102,10 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
    asking me first.
 ```
 
+## Resuming with `--since`
+
+`hark <provider> --since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira and Todoist already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+
 ## GitHub
 
 `hark github` uses `GITHUB_TOKEN`, or the token from `gh auth token`. Set `HARK_GITHUB_API` for GitHub Enterprise.
@@ -107,12 +115,13 @@ GitHub has no per-user webhooks, so hark polls every minute:
 - `/notifications` for activity by others on issues and PRs you authored or watch. Threads authored by someone else are marked `watching`.
 - `/users/{you}/events` for your own actions, which GitHub never notifies you about.
 
-hark reads only unread notifications and marks each thread as read once it has printed it, so a restarted hark, or a second consumer, never sees the same notification twice. On startup it picks up unread notifications from the last hour, which covers the gap while a monitor is re-armed; older unread ones are left untouched. Threads hark does not report (releases, discussions) stay unread. Opening a thread on github.com marks it as read too, so hark skips it.
+hark reads only unread notifications and marks each thread as read once it has printed it, so a restarted hark, or a second consumer, never sees the same notification twice. On startup it picks up unread notifications from the last hour, or from `--since`, which covers the gap while a monitor is re-armed; older unread ones are left untouched. Notifications already marked as read, by hark or on github.com, are not reported again even if they fall after `--since`. Threads hark does not report (releases, discussions) stay unread. Opening a thread on github.com marks it as read too, so hark skips it.
 
 Known limits:
 
 - GitHub delays the events API by 30 seconds up to a few hours, so your own actions can show up late.
 - Each poll reports only the latest comment on a thread. Two comments within a minute show as one.
+- Each poll reads one page of 50 notifications, so a `--since` far back takes a few polls to catch up.
 
 | Kind | When |
 |------|------|
@@ -129,7 +138,7 @@ Known limits:
 
 `hark jira` needs `JIRA_URL` (for example `https://yourcompany.atlassian.net`), `JIRA_EMAIL` and `JIRA_API_TOKEN`, from id.atlassian.com, Security, API tokens. Every minute it searches the issues you are assigned to, reported or watch, and reads their comments and history. Your own actions are skipped.
 
-Like Todoist, it keeps its cursor in `~/.local/state/hark/jira.json` and the first run picks up the last hour.
+Like Todoist, it keeps its cursor in `~/.local/state/hark/jira.json` and the first run picks up the last hour. `--since` replaces the saved cursor.
 
 | Kind | When |
 |------|------|
@@ -145,7 +154,7 @@ Mentions on issues you don't follow are not reported.
 
 `hark todoist` needs `TODOIST_API_TOKEN`, from Todoist settings, Integrations, Developer. It polls the activity log every minute, which depends on your Todoist plan having activity history.
 
-hark keeps its cursor in `~/.local/state/hark/todoist.json` (or `$XDG_STATE_HOME/hark`), so a restart continues where it stopped without repeating events. The first run picks up the last hour.
+hark keeps its cursor in `~/.local/state/hark/todoist.json` (or `$XDG_STATE_HOME/hark`), so a restart continues where it stopped without repeating events. The first run picks up the last hour. `--since` replaces the saved cursor.
 
 | Kind | When |
 |------|------|

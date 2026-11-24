@@ -488,3 +488,24 @@ func TestReviewFailuresBecomeErrorEvents(t *testing.T) {
 		}
 	}
 }
+
+func TestSinceReplacesTheStartupWindow(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` + thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "/repos/dukex/foo/issues/comments/9", "2026-11-23T07:30:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"user":{"login":"dukex"},"html_url":"u"}`
+	routes["/repos/dukex/foo/issues/comments/9"] = `{"user":{"login":"alice"},"body":"still valid?","created_at":"2026-11-23T07:30:00Z","html_url":"c9"}`
+	routes["/users/dukex/events"] = `[` +
+		activity("2", "PullRequestEvent", "opened", "2026-11-23T07:45:00Z", `"pull_request":{"url":"{{API}}/repos/dukex/foo/pulls/12"}`) + `,` +
+		activity("1", "PullRequestEvent", "opened", "2026-11-23T06:59:00Z", `"pull_request":{"url":"{{API}}/repos/dukex/foo/pulls/12"}`) + `]`
+	routes["/repos/dukex/foo/pulls/12"] = `{"number":12,"title":"feat","html_url":"p12"}`
+	f := newFake(t, routes)
+	w := f.watcher()
+	w.Since = time.Date(2026, 11, 23, 7, 0, 0, 0, time.UTC)
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T07:30:00Z github issue.commented dukex/foo#3 @alice "still valid?" c9`,
+		`2026-11-23T07:45:00Z github pr.opened dukex/foo#12 @dukex "feat" p12`)
+	if f.query != "since=2026-11-23T07%3A00%3A00Z" {
+		t.Errorf("query %q", f.query)
+	}
+}

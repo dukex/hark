@@ -307,3 +307,22 @@ func TestDoctor(t *testing.T) {
 		t.Errorf("activity log failure not reported: %+v", checks)
 	}
 }
+
+func TestSinceOverridesTheSavedCursor(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, `{"results":[]}`)
+	state := filepath.Join(t.TempDir(), "todoist.json")
+	if err := hark.SaveState(state, map[string]any{"cursor": "2026-11-23T20:50:00Z", "seen": []string{"x"}, "due_day": "2026-11-23"}); err != nil {
+		t.Fatal(err)
+	}
+	w := New(f.URL, "secret", state)
+	w.Now = func() time.Time { return now }
+	w.Since = time.Date(2026, 11, 23, 15, 0, 0, 0, time.UTC)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
+		t.Fatal(err)
+	}
+	if !w.state.Cursor.Equal(w.Since) || w.state.Seen != nil || w.state.DueDay != "2026-11-23" {
+		t.Errorf("state %+v", w.state)
+	}
+}

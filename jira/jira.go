@@ -25,6 +25,7 @@ type Watcher struct {
 	State    string
 	Interval time.Duration
 	Now      func() time.Time
+	Since    time.Time
 
 	me    string
 	state state
@@ -54,6 +55,9 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 	w.me = me.AccountID
 	if err := hark.LoadState(w.State, &w.state); err != nil {
 		return err
+	}
+	if !w.Since.IsZero() {
+		w.state.Cursor, w.state.Seen = w.Since, nil
 	}
 	if w.state.Cursor.IsZero() {
 		w.state.Cursor = w.Now().Add(-backlog)

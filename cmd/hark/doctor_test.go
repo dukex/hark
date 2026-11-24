@@ -15,19 +15,19 @@ type fakeProvider []hark.Check
 func (fakeProvider) Watch(context.Context, func(hark.Event)) error { return nil }
 func (f fakeProvider) Doctor(context.Context) []hark.Check         { return f }
 
-func withProviders(t *testing.T, p map[string]func(func(string) string) (hark.Provider, error)) {
+func withProviders(t *testing.T, p map[string]constructor) {
 	t.Helper()
 	old, oldVersion := providers, version
 	t.Cleanup(func() { providers, version = old, oldVersion })
 	providers, version = p, "0.7.0"
 }
 
-func provider(p hark.Provider, err error) func(func(string) string) (hark.Provider, error) {
-	return func(func(string) string) (hark.Provider, error) { return p, err }
+func provider(p hark.Provider, err error) constructor {
+	return func(func(string) string, options) (hark.Provider, error) { return p, err }
 }
 
 func TestDoctorReportsEveryProvider(t *testing.T) {
-	withProviders(t, map[string]func(func(string) string) (hark.Provider, error){
+	withProviders(t, map[string]constructor{
 		"alpha": provider(fakeProvider{{Name: "token", Detail: "logged in as duke"}}, nil),
 		"beta":  provider(nil, fmt.Errorf("%w: set BETA_TOKEN", errNotConfigured)),
 		"gamma": provider(fakeProvider{{Name: "token", Detail: "valid"}, {Name: "activity log", Err: errors.New("403 Forbidden")}}, nil),
@@ -52,7 +52,7 @@ gamma
 }
 
 func TestDoctorPassesWhenConfiguredProvidersWork(t *testing.T) {
-	withProviders(t, map[string]func(func(string) string) (hark.Provider, error){
+	withProviders(t, map[string]constructor{
 		"alpha": provider(fakeProvider{{Name: "token", Detail: "ok"}}, nil),
 		"beta":  provider(nil, fmt.Errorf("%w: set BETA_TOKEN", errNotConfigured)),
 	})
@@ -62,7 +62,7 @@ func TestDoctorPassesWhenConfiguredProvidersWork(t *testing.T) {
 }
 
 func TestDoctorFailsWithNothingConfigured(t *testing.T) {
-	withProviders(t, map[string]func(func(string) string) (hark.Provider, error){
+	withProviders(t, map[string]constructor{
 		"beta": provider(nil, fmt.Errorf("%w: set BETA_TOKEN", errNotConfigured)),
 	})
 	var stdout bytes.Buffer
@@ -78,7 +78,7 @@ func TestMissingConfigurationIsNotConfigured(t *testing.T) {
 	defer func(f func() (string, error)) { ghToken = f }(ghToken)
 	ghToken = func() (string, error) { return "", errors.New("not logged in") }
 	for name, newProvider := range providers {
-		if _, err := newProvider(env(nil)); !errors.Is(err, errNotConfigured) {
+		if _, err := newProvider(env(nil), options{}); !errors.Is(err, errNotConfigured) {
 			t.Errorf("%s: %v is not errNotConfigured", name, err)
 		}
 	}

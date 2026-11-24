@@ -298,3 +298,24 @@ func TestDoctor(t *testing.T) {
 		t.Errorf("search failure not reported: %+v", checks)
 	}
 }
+
+func TestSinceOverridesTheSavedCursor(t *testing.T) {
+	f := newFake(t, map[string]string{})
+	state := filepath.Join(t.TempDir(), "jira.json")
+	if err := hark.SaveState(state, map[string]any{"cursor": "2026-11-23T20:50:00Z", "seen": []string{"PROJ-1:comment:1"}}); err != nil {
+		t.Fatal(err)
+	}
+	w := New(f.URL, "duke@example.com", "secret", state)
+	w.Now = func() time.Time { return now }
+	w.Since = now.Add(-3 * time.Hour)
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := w.Watch(ctx, func(hark.Event) { cancel() }); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.queries[0].Get("jql"); !strings.Contains(got, "updated >= -182m") {
+		t.Errorf("jql %q", got)
+	}
+	if !w.state.Cursor.Equal(w.Since) || w.state.Seen != nil {
+		t.Errorf("state %+v", w.state)
+	}
+}

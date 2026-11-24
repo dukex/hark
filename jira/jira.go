@@ -26,6 +26,7 @@ type Watcher struct {
 	Interval time.Duration
 	Now      func() time.Time
 	Since    time.Time
+	Filter   string
 
 	me    string
 	state state
@@ -53,6 +54,13 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 		return err
 	}
 	w.me = me.AccountID
+	if w.Filter != "" {
+		var page struct{}
+		q := url.Values{"jql": {w.jql()}, "fields": {"summary"}, "maxResults": {"1"}}
+		if err := w.get(ctx, "/rest/api/3/search/jql?"+q.Encode(), &page); err != nil {
+			return fmt.Errorf("--filter %q: %w", w.Filter, err)
+		}
+	}
 	if err := hark.LoadState(w.State, &w.state); err != nil {
 		return err
 	}
@@ -159,7 +167,7 @@ type found struct {
 func (w *Watcher) poll(ctx context.Context) []hark.Event {
 	minutes := int(w.Now().Sub(w.state.Cursor).Minutes()) + 2
 	q := url.Values{
-		"jql":        {fmt.Sprintf("%s AND updated >= -%dm ORDER BY updated ASC", follows, minutes)},
+		"jql":        {fmt.Sprintf("%s AND updated >= -%dm ORDER BY updated ASC", w.jql(), minutes)},
 		"fields":     {"summary"},
 		"expand":     {"changelog"},
 		"maxResults": {"50"},
@@ -201,6 +209,13 @@ func (w *Watcher) poll(ctx context.Context) []hark.Event {
 		events = append(events, f.event)
 	}
 	return events
+}
+
+func (w *Watcher) jql() string {
+	if w.Filter == "" {
+		return follows
+	}
+	return follows + " AND (" + w.Filter + ")"
 }
 
 func (w *Watcher) found(i issue, comments []comment) []found {

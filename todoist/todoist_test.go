@@ -24,6 +24,8 @@ type fakeTodoist struct {
 	pages   map[string]string
 	today   string
 	queries []url.Values
+	tasks   map[string]string
+	asked   []url.Values
 }
 
 func newFake(t *testing.T, pages map[string]string, today string) *fakeTodoist {
@@ -44,12 +46,19 @@ func newFake(t *testing.T, pages map[string]string, today string) *fakeTodoist {
 				return
 			}
 			_, _ = w.Write([]byte(body))
-		case "/tasks/filter":
-			if r.URL.Query().Get("query") != "today" || f.today == "" {
+		case "/tasks/filter", "/tasks/completed/by_completion_date":
+			q := r.URL.Query()
+			if q.Get("query") == "today" && f.today != "" {
+				_, _ = w.Write([]byte(f.today))
+				return
+			}
+			f.asked = append(f.asked, q)
+			body, ok := f.tasks[r.URL.Path+" "+q.Get("query")+q.Get("filter_query")+" "+q.Get("cursor")]
+			if !ok {
 				http.NotFound(w, r)
 				return
 			}
-			_, _ = w.Write([]byte(f.today))
+			_, _ = w.Write([]byte(body))
 		default:
 			http.NotFound(w, r)
 		}
@@ -324,5 +333,92 @@ func TestSinceOverridesTheSavedCursor(t *testing.T) {
 	}
 	if !w.state.Cursor.Equal(w.Since) || w.state.Seen != nil || w.state.DueDay != "2026-11-23" {
 		t.Errorf("state %+v", w.state)
+	}
+}
+
+func TestFilterKeepsOnlyMatchingTasks(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("",
+		act("item", "added", "t3", "2026-11-23T20:20:00Z", `"content":"Outro projeto"`),
+		act("note", "added", "n1", "2026-11-23T20:15:00Z", `"content":"comentário"`),
+		act("item", "completed", "t2", "2026-11-23T20:10:00Z", `"content":"Feita"`),
+		act("item", "added", "t1", "2026-11-23T20:05:00Z", `"content":"Nova"`))}, "")
+	f.tasks = map[string]string{
+		"/tasks/filter #Work & p1 ":                       `{"results":[{"id":"t1"}],"next_cursor":"c2"}`,
+		"/tasks/filter #Work & p1 c2":                     `{"results":[{"id":"task9"}],"next_cursor":null}`,
+		"/tasks/completed/by_completion_date #Work & p1 ": `{"items":[{"id":"t2"}]}`,
+	}
+	w := f.watcher(t)
+	w.Filter = "#Work & p1"
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T20:05:00Z todoist task.created "Nova" https://app.todoist.com/app/task/t1`,
+		`2026-11-23T20:10:00Z todoist task.completed "Feita" https://app.todoist.com/app/task/t2`,
+		`2026-11-23T20:15:00Z todoist task.commented "comentário" https://app.todoist.com/app/task/task9`)
+	if done := f.asked[2]; done.Get("since") != "2026-11-23T20:05:00Z" || done.Get("until") != "2026-11-23T20:20:01Z" {
+		t.Errorf("completed window %v", done)
+	}
+	if !w.state.Cursor.Equal(time.Date(2026, 11, 23, 20, 20, 0, 0, time.UTC)) {
+		t.Errorf("filtered events should still move the cursor: %v", w.state.Cursor)
+	}
+}
+
+func TestFilterFailureKeepsTheCursor(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("", act("item", "added", "t1", "2026-11-23T20:05:00Z", `"content":"Nova"`))}, "")
+	w := f.watcher(t)
+	w.Filter = "#Work"
+	events := w.poll(context.Background())
+	if len(events) != 1 || events[0].Kind != "error" || !strings.Contains(events[0].Text, "/tasks/filter: 404") {
+		t.Fatalf("got %v", events)
+	}
+	if !w.state.Cursor.Equal(time.Date(2026, 11, 23, 20, 0, 0, 0, time.UTC)) {
+		t.Errorf("cursor moved to %v", w.state.Cursor)
+	}
+	f.tasks = map[string]string{"/tasks/filter #Work ": `{"results":[],"next_cursor":null}`}
+	if events := w.poll(context.Background()); len(events) != 1 || !strings.Contains(events[0].Text, "/tasks/completed/by_completion_date: 404") {
+		t.Fatalf("got %v", events)
+	}
+}
+
+func TestFilterWithoutActivityAsksNothing(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, "")
+	w := f.watcher(t)
+	w.Filter = "#Work"
+	if events := w.poll(context.Background()); len(events) != 0 || len(f.asked) != 0 {
+		t.Errorf("events %v, asked %v", events, f.asked)
+	}
+}
+
+func TestFilterNarrowsTasksDueToday(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")}, "")
+	f.tasks = map[string]string{"/tasks/filter today & (#Work) ": `{"results":[{"id":"t1","content":"Deploy"}],"next_cursor":null}`}
+	w := f.watcher(t)
+	w.state.DueDay = ""
+	w.Filter = "#Work"
+	assertLines(t, w.poll(context.Background()), `2026-11-23T21:00:00Z todoist task.due "Deploy" https://app.todoist.com/app/task/t1`)
+}
+
+func TestFilterIsCheckedOnStart(t *testing.T) {
+	f := newFake(t, map[string]string{}, `{"results":[]}`)
+	w := New(f.URL, "secret", filepath.Join(t.TempDir(), "todoist.json"))
+	w.Now = func() time.Time { return now }
+	w.Filter = "#Wrok"
+	if err := w.Watch(context.Background(), func(hark.Event) {}); err == nil || !strings.Contains(err.Error(), `--filter "#Wrok": GET /tasks/filter: 404`) {
+		t.Fatalf("err %v", err)
+	}
+	f.tasks = map[string]string{"/tasks/filter #Work ": `{"results":[],"next_cursor":null}`}
+	w.Filter = "#Work"
+	if err := w.Watch(context.Background(), func(hark.Event) {}); err == nil || !strings.Contains(err.Error(), `--filter "#Work": GET /tasks/completed/by_completion_date: 404`) {
+		t.Fatalf("err %v", err)
+	}
+	f.tasks["/tasks/completed/by_completion_date #Work "] = `{"items":[]}`
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := w.Watch(ctx, func(hark.Event) { cancel() }); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.asked[1]; got.Get("query") != "#Work" || got.Get("limit") != "1" {
+		t.Errorf("probe %v", got)
+	}
+	if got := f.asked[len(f.asked)-2]; got.Get("filter_query") != "#Work" || got.Get("since") != "2026-11-23T20:00:00Z" || got.Get("until") != "2026-11-23T21:00:00Z" || got.Get("limit") != "1" {
+		t.Errorf("completed probe %v", got)
 	}
 }

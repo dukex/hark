@@ -98,13 +98,31 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
    - `task.commented`: tell me what the comment says.
    - `task.created`, `task.completed`, `task.rescheduled`: stay quiet unless
      the task is about the work in this session.
+   If I ask to watch only some repos, projects or tasks, pass `--filter` with
+   the provider's own syntax (see the hark README).
 5. Never reply, close or change anything on GitHub, Jira or Todoist without
    asking me first.
 ```
 
-## Resuming with `--since`
+## Options
 
-`hark <provider> --since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira and Todoist already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+`hark <provider> [--since TIME] [--filter RULES]`
+
+### `--since`
+
+`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira and Todoist already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+
+### `--filter`
+
+`--filter RULES` reports only what matches RULES, written in each provider's own syntax. `error` lines are always printed, and an invalid filter stops hark on start.
+
+| Provider | RULES | Example |
+|----------|-------|---------|
+| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`. Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme is:pr'` |
+| `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'` |
+| `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'` |
+
+On GitHub, notifications the filter drops stay unread, and `reason:` only matches notifications, never your own actions. On Todoist, each minute with activity costs two extra requests to find the tasks that match, and `task.due` lists only tasks due today that match.
 
 ## GitHub
 
@@ -121,7 +139,7 @@ Known limits:
 
 - GitHub delays the events API by 30 seconds up to a few hours, so your own actions can show up late.
 - Each poll reports only the latest comment on a thread. Two comments within a minute show as one.
-- Each poll reads one page of 50 notifications, so a `--since` far back takes a few polls to catch up.
+- Each poll reads one page of 50 notifications. Threads hark handles are marked as read and leave the page, so a `--since` far back takes a few polls to catch up. Threads it skips (releases, discussions, or dropped by `--filter`) stay unread and keep their place, so 50 of them hide anything older.
 
 | Kind | When |
 |------|------|

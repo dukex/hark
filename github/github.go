@@ -25,6 +25,7 @@ type Watcher struct {
 	Interval time.Duration
 	Now      func() time.Time
 	Since    time.Time
+	Filter   Filter
 
 	me        string
 	started   time.Time
@@ -115,7 +116,7 @@ type ownEvent struct {
 	} `json:"payload"`
 }
 
-var kinds = map[string]string{"Issue": "issue", "PullRequest": "pr"}
+var kinds = map[string]string{"Issue": "issue", "PullRequest": "pr", "CheckSuite": "ci", "WorkflowRun": "ci"}
 
 func (w *Watcher) poll(ctx context.Context) []hark.Event {
 	return append(w.notifications(ctx), w.ownEvents(ctx)...)
@@ -159,6 +160,9 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 		default:
 			continue
 		}
+		if is, _, _ := strings.Cut(kind, "."); !w.Filter.match(o.Repo.Name, "", is) {
+			continue
+		}
 		var s subject
 		if err := w.do(ctx, http.MethodGet, target.URL, &s); err != nil {
 			events = append(events, w.failure(err))
@@ -176,16 +180,18 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 }
 
 func (w *Watcher) thread(ctx context.Context, n notification) []hark.Event {
+	kind, ok := kinds[n.Subject.Type]
+	if !ok || !w.Filter.match(n.Repository.FullName, n.Reason, kind) {
+		return nil
+	}
 	var events []hark.Event
-	if kind, ok := kinds[n.Subject.Type]; ok {
+	if kind == "ci" {
+		events = []hark.Event{ci(n)}
+	} else {
 		var err error
 		if events, err = w.discussion(ctx, n, kind); err != nil {
 			return []hark.Event{w.failure(err)}
 		}
-	} else if n.Subject.Type == "CheckSuite" || n.Subject.Type == "WorkflowRun" {
-		events = []hark.Event{ci(n)}
-	} else {
-		return nil
 	}
 	if err := w.do(ctx, http.MethodPatch, w.API+"/notifications/threads/"+n.ID, nil); err != nil {
 		events = append(events, w.failure(err))

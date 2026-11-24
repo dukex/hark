@@ -27,6 +27,7 @@ type Watcher struct {
 	Interval time.Duration
 	Now      func() time.Time
 	Since    time.Time
+	Filter   string
 
 	state state
 }
@@ -56,6 +57,11 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 	}
 	if w.state.Cursor.IsZero() {
 		w.state.Cursor = w.Now().Add(-backlog)
+	}
+	if w.Filter != "" {
+		if _, err := w.matching(ctx, w.Now().Add(-backlog), w.Now(), true); err != nil {
+			return fmt.Errorf("--filter %q: %w", w.Filter, err)
+		}
 	}
 	for {
 		for _, e := range w.poll(ctx) {
@@ -117,6 +123,13 @@ func (w *Watcher) activity(ctx context.Context) []hark.Event {
 		q.Set("cursor", page.NextCursor)
 	}
 	slices.SortStableFunc(all, func(a, b activity) int { return a.EventDate.Compare(b.EventDate) })
+	var keep map[string]bool
+	if w.Filter != "" && len(all) > 0 {
+		var err error
+		if keep, err = w.matching(ctx, all[0].EventDate, all[len(all)-1].EventDate.Add(time.Second), false); err != nil {
+			return []hark.Event{w.failure(err)}
+		}
+	}
 
 	var events []hark.Event
 	for _, a := range all {
@@ -128,11 +141,54 @@ func (w *Watcher) activity(ctx context.Context) []hark.Event {
 			w.state.Cursor, w.state.Seen = a.EventDate, nil
 		}
 		w.state.Seen = append(w.state.Seen, key)
-		if e, ok := w.event(a); ok {
+		id := a.ObjectID
+		if a.ObjectType == "note" {
+			id = a.ParentItemID
+		}
+		if e, ok := w.event(a); ok && (keep == nil || keep[id]) {
 			events = append(events, e)
 		}
 	}
 	return events
+}
+
+func (w *Watcher) matching(ctx context.Context, since, until time.Time, probe bool) (map[string]bool, error) {
+	ids := map[string]bool{}
+	limit := "200"
+	if probe {
+		limit = "1"
+	}
+	for _, r := range []struct {
+		path  string
+		query url.Values
+	}{
+		{"/tasks/filter", url.Values{"query": {w.Filter}, "limit": {limit}}},
+		{"/tasks/completed/by_completion_date", url.Values{
+			"filter_query": {w.Filter},
+			"since":        {since.UTC().Format(time.RFC3339)},
+			"until":        {until.UTC().Format(time.RFC3339)},
+			"limit":        {limit},
+		}},
+	} {
+		for {
+			var page struct {
+				Results    []task `json:"results"`
+				Items      []task `json:"items"`
+				NextCursor string `json:"next_cursor"`
+			}
+			if err := w.get(ctx, r.path+"?"+r.query.Encode(), &page); err != nil {
+				return nil, err
+			}
+			for _, t := range append(page.Results, page.Items...) {
+				ids[t.ID] = true
+			}
+			if page.NextCursor == "" || probe {
+				break
+			}
+			r.query.Set("cursor", page.NextCursor)
+		}
+	}
+	return ids, nil
 }
 
 func (w *Watcher) event(a activity) (hark.Event, bool) {
@@ -170,7 +226,11 @@ func (w *Watcher) dueToday(ctx context.Context) []hark.Event {
 	var page struct {
 		Results []task `json:"results"`
 	}
-	if err := w.get(ctx, "/tasks/filter?"+url.Values{"query": {"today"}, "limit": {"200"}}.Encode(), &page); err != nil {
+	query := "today"
+	if w.Filter != "" {
+		query = "today & (" + w.Filter + ")"
+	}
+	if err := w.get(ctx, "/tasks/filter?"+url.Values{"query": {query}, "limit": {"200"}}.Encode(), &page); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
 	var events []hark.Event

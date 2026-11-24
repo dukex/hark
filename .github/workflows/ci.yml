@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test -race -coverprofile=cover.out ./...
+      - name: coverage is 100%
+        run: |
+          total=$(go tool cover -func=cover.out | tail -1)
+          echo "$total"
+          case "$total" in *100.0%) ;; *) exit 1 ;; esac
+      - uses: golangci/golangci-lint-action@v9
+      - run: shellcheck install.sh

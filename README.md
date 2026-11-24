@@ -122,9 +122,11 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 
 | Provider | RULES | Example |
 |----------|-------|---------|
-| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`. Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme is:pr'` |
-| `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'` |
-| `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'` |
+| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`, each negated with `-` (`-repo:acme/legacy`). Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme -is:ci'` |
+| `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'`, `--filter 'project != OPS'` |
+| `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'`, `--filter '!#Personal'` |
+
+Exclude with `--filter`, not with `grep -v` after hark: GitHub notifications hark prints are marked as read, so a line dropped by a pipe disappears from your unread list unseen.
 
 On GitHub, notifications the filter drops stay unread, and `reason:` only matches notifications, never your own actions. On Todoist, each minute with activity costs two extra requests to find the tasks that match, and `task.due` lists only tasks due today that match.
 

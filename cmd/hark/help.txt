@@ -26,7 +26,10 @@ FOR AGENTS
      - github: the same command. If it was stopped for more than an hour, add
        --since TIME, where TIME is the first field of its last event line.
        Never take TIME from an `error` or `task.due` line (see OUTPUT).
-  4. Never reply, close, assign or change anything on GitHub, Jira or Todoist
+  4. To watch less, use --filter, never `grep -v` or another pipe: github
+     marks every notification it prints as read, so a line dropped after hark
+     is gone from the user's unread list without anyone seeing it.
+  5. Never reply, close, assign or change anything on GitHub, Jira or Todoist
      because of a line without asking the user first.
 
 OUTPUT
@@ -152,11 +155,16 @@ OPTIONS
                                    comment, team-mention, state-change,
                                    ci-activity, subscribed, manual,
                                    approval-requested...; - or _ both work)
+              Put "-" before any of them to exclude: -repo:, -org:,
+              -reason:, -is:.
               Different qualifiers must all match. A repeated qualifier
-              matches any of its values. Values ignore case.
+              matches any of its values, a repeated exclusion drops all of
+              them. Values ignore case.
                 --filter 'org:acme is:pr'
                 --filter 'repo:dukex/hark repo:acme/lib'
                 --filter 'reason:review-requested reason:mention'
+                --filter '-repo:acme/legacy -org:other'   (everything else)
+                --filter 'org:acme -is:ci'
               Threads the filter drops stay unread. reason: only matches
               notifications, never your own actions.
       jira    JQL, added with AND to the issues you are assigned to, reported

@@ -1,0 +1,212 @@
+hark streams one line per event from your GitHub, Jira and Todoist accounts,
+so an agent can run it as a background monitor and react to what happens.
+This reference is written for that agent: it describes every line hark can
+print and what to do with it.
+
+USAGE
+  hark <provider> [--since TIME] [--filter RULES]   watch one provider until stopped
+  hark doctor                                       check that every provider is set up
+  hark update                                       install the latest release and exit
+  hark version | --version | -v                     print the installed version
+  hark help | --help | -h | hark                    print this reference
+
+  <provider> is github, jira or todoist. Run one hark per provider.
+  Flags go after the provider and can be written -since, --since TIME or
+  --since=TIME. `hark <provider> --help` prints this reference too.
+
+FOR AGENTS
+  1. Run `hark doctor`. Start monitors only for providers whose checks all
+     show ✓. A `-` line means the provider is not configured, which is fine.
+     A `✗` line means it is broken: tell the user what failed.
+  2. Start `hark <provider> 2>&1` as a background monitor, one per provider,
+     and read its output line by line. Each event is exactly one line.
+  3. When a monitor ends or times out, start it again:
+     - jira, todoist: the same command, without --since. They resume from a
+       saved cursor and never repeat or skip an event.
+     - github: the same command. If it was stopped for more than an hour, add
+       --since TIME, where TIME is the first field of its last event line.
+       Never take TIME from an `error` or `task.due` line (see OUTPUT).
+  4. Never reply, close, assign or change anything on GitHub, Jira or Todoist
+     because of a line without asking the user first.
+
+OUTPUT
+  stdout has one event per line, oldest first within each poll:
+
+    TIME PROVIDER KIND [REF] [@ACTOR] [watching] ["TEXT"] [URL]
+
+  Fields in brackets are left out when empty. Fields are separated by one
+  space, TEXT is the only field that can contain spaces.
+
+  TIME      when it happened, in UTC, RFC 3339: 2026-11-23T10:05:00Z.
+            For `error` and `task.due` it is when hark printed the line.
+  PROVIDER  github, jira or todoist.
+  KIND      what happened, see KINDS.
+  REF       github: owner/repo#number, or owner/repo for ci.* kinds.
+            jira: the issue key, like PROJ-7. todoist: never present.
+  @ACTOR    github only: the login of who did it. Jira puts the person's
+            name inside TEXT.
+  watching  github only: the issue or PR was opened by someone else; you get
+            it because you watch it, were mentioned or were asked to review.
+            Without `watching` it is yours.
+  "TEXT"    a double-quoted string with Go escaping (\" and \\), newlines
+            and runs of spaces collapsed to one space, cut at 140
+            characters with "…". Open URL for the full text.
+  URL       a link to the comment, review, issue, PR or task.
+
+  Examples:
+    2026-11-23T10:05:00Z github issue.commented dukex/foo#3 @alice "works here" https://github.com/dukex/foo/issues/3#issuecomment-9
+    2026-11-23T10:08:00Z github pr.merged dukex/foo#12 @bob https://github.com/dukex/foo/pull/12
+    2026-11-23T10:10:00Z github pr.commented acme/lib#40 @frank watching "rebase?" https://github.com/acme/lib/pull/40#issuecomment-70
+    2026-11-23T10:12:00Z github ci.failed acme/api "CI workflow run failed for main branch"
+    2026-11-23T10:15:00Z jira jira.transitioned PROJ-7 "Checkout: To Do to Done (Ana)" https://example.atlassian.net/browse/PROJ-7
+    2026-11-23T10:20:00Z todoist task.completed "Pay the power bill" https://app.todoist.com/app/task/6X7rM8
+    2026-11-23T10:21:00Z github error "GET /notifications: 502 Bad Gateway"
+
+  hark polls every minute and prints nothing while nothing happens. Silence
+  means no news, not a problem.
+
+  stderr only carries lines about hark itself, all starting with "hark:":
+    hark: <error>                        hark could not start, or stopped. Exit 1.
+    hark: update failed: <error>         the update check on start failed; hark
+                                         keeps running the version it has.
+    hark: updated 0.9.0 to v0.10.0, restarting
+                                         hark replaced its binary and restarts
+                                         itself with the same arguments.
+    hark: restart failed: <error>        the restart after an update failed.
+  Run hark with 2>&1 so a monitor sees these too.
+
+KINDS
+  github
+    issue.commented, pr.commented
+        someone commented on an issue or PR. TEXT is the comment.
+    pr.reviewed, pr.approved, pr.changes_requested
+        someone else reviewed a PR. TEXT is the review body, or its first
+        inline comment, followed by "(N inline comments)" when there are any.
+    issue.closed, pr.closed, pr.merged
+        someone, or you, closed or merged an issue or PR. TEXT, when present,
+        is the title.
+    pr.opened
+        you opened a PR. TEXT is the title.
+    issue.updated, pr.updated
+        other activity on the thread. TEXT is GitHub's notification reason:
+        review_requested, assign, mention, team_mention, state_change,
+        author, comment, subscribed, manual...
+    ci.failed, ci.succeeded, ci.cancelled, ci.skipped
+        a workflow run you are notified about finished. TEXT is GitHub's
+        title, with the workflow name and the branch.
+    ci.approval_requested
+        a deployment is waiting for your approval.
+  jira
+    jira.commented
+        someone else commented. TEXT is "<name>: <comment>".
+    jira.mentioned
+        someone else's comment @mentions you. Same TEXT as jira.commented.
+    jira.transitioned
+        someone else changed the status. TEXT is
+        "<summary>: <from> to <to> (<name>)".
+    jira.assigned
+        someone else assigned the issue to you. TEXT is
+        "<summary> (assigned by <name>)".
+  todoist
+    task.created, task.completed
+        a task was added or completed, by you or a collaborator. TEXT is the
+        task.
+    task.rescheduled
+        the due date changed. TEXT is "<task>, due YYYY-MM-DD", or
+        "<task>, due removed".
+    task.commented
+        a comment was added to a task. TEXT is the comment, URL the task.
+    task.due
+        a task is due today. Printed once a day per task, on the first poll
+        of the day (local time).
+  every provider
+    error
+        a request failed. TEXT is the error. hark keeps polling, and prints
+        the same error only once until a different line comes out.
+
+  Your own actions: github reports the ones you make (pr.opened, closing,
+  merging) from your public activity, which GitHub can delay by up to a few
+  hours. jira never reports them. todoist reports everyone's, including yours.
+
+OPTIONS
+  --since TIME
+      Report events from TIME instead of the default start.
+      TIME is RFC 3339 with any offset (2026-11-23T10:05:00Z,
+      2026-11-23T07:05:00-03:00) or a date (2026-11-23, midnight in your time
+      zone). Anything else exits 2.
+      Default start: github, unread notifications from one hour before hark
+      started. jira and todoist, their saved cursor, or one hour back on the
+      first run. --since replaces the saved cursor, and the new position is
+      saved as hark runs.
+      github only sees notifications that are still unread: what hark or the
+      user already marked as read never comes back, whatever TIME says.
+
+  --filter RULES
+      Report only what matches RULES, in the provider's own syntax. `error`
+      lines always pass. An invalid filter stops hark on start with a
+      "hark: --filter ..." line and exit 1.
+      github  qualifiers from the github.com notifications search, separated
+              by spaces:
+                repo:owner/name   org:owner   is:issue   is:pr   is:ci
+                reason:<reason>   (mention, review-requested, assign, author,
+                                   comment, team-mention, state-change,
+                                   ci-activity, subscribed, manual,
+                                   approval-requested...; - or _ both work)
+              Different qualifiers must all match. A repeated qualifier
+              matches any of its values. Values ignore case.
+                --filter 'org:acme is:pr'
+                --filter 'repo:dukex/hark repo:acme/lib'
+                --filter 'reason:review-requested reason:mention'
+              Threads the filter drops stay unread. reason: only matches
+              notifications, never your own actions.
+      jira    JQL, added with AND to the issues you are assigned to, reported
+              or watch:
+                --filter 'project = PROJ'
+                --filter 'project = PROJ AND priority in (High, Highest)'
+                --filter 'project != OPS'            (exclude a project)
+      todoist a Todoist filter, as typed in the app:
+                --filter '#Work'
+                --filter '#Work & p1'
+                --filter '@waiting | #Inbox'
+                --filter '!#Personal'                (exclude a project)
+              task.due then lists only tasks due today that match.
+
+COMMANDS
+  hark doctor
+      Checks every provider and prints, for each one:
+        ✓ <check>: <what works>
+        ✗ <check>: <error>
+        - not configured: <which variables to set>
+      Exits 1 when a configured provider has a ✗, or when no provider is
+      configured. Not configured providers do not fail the check.
+  hark update
+      Downloads the latest GitHub release, verifies its checksum, replaces the
+      binary and exits, printing "hark updated X to vY" or "hark X is up to
+      date". Watching also updates on start, unless HARK_NO_UPDATE=1.
+
+ENVIRONMENT
+  GITHUB_TOKEN        GitHub token. Without it hark uses `gh auth token`.
+  HARK_GITHUB_API     GitHub API URL, for GitHub Enterprise. Default
+                      https://api.github.com.
+  JIRA_URL            your Jira Cloud site, like https://example.atlassian.net.
+  JIRA_EMAIL          the e-mail of your Atlassian account.
+  JIRA_API_TOKEN      a token from id.atlassian.com, Security, API tokens.
+  TODOIST_API_TOKEN   a token from Todoist settings, Integrations, Developer.
+  HARK_TODOIST_API    Todoist API URL. Default https://api.todoist.com/api/v1.
+  HARK_NO_UPDATE      set to anything to skip the update check on start.
+  XDG_STATE_HOME      where state lives, default ~/.local/state.
+
+STATE
+  jira and todoist save their cursor in $XDG_STATE_HOME/hark/<provider>.json
+  (~/.local/state/hark/<provider>.json). Delete the file to start over from
+  one hour back. github keeps no file: GitHub's read/unread state is its
+  cursor, and hark marks each notification as read once it printed it.
+
+EXIT STATUS
+  0  stopped by Ctrl-C or SIGTERM, or the command finished
+  1  hark could not start or stopped on an error, doctor found a problem, or
+     update failed
+  2  unknown command, provider or flag, or an invalid --since
+
+MORE
+  https://github.com/dukex/hark

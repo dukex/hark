@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"context"
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -41,6 +42,9 @@ var (
 )
 
 var errNotConfigured = errors.New("not configured")
+
+//go:embed help.txt
+var helpText string
 
 type options struct {
 	Since  time.Time
@@ -125,6 +129,10 @@ func displayVersion() string {
 }
 
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	if len(args) == 0 || len(args) == 1 && slices.Contains([]string{"help", "--help", "-h"}, args[0]) {
+		_, _ = fmt.Fprint(stdout, helpText)
+		return 0
+	}
 	if len(args) == 1 && slices.Contains([]string{"--version", "-v", "version"}, args[0]) {
 		_, _ = fmt.Fprintln(stdout, "hark", displayVersion())
 		return 0
@@ -135,7 +143,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	if len(args) == 1 && args[0] == "update" {
 		return selfUpdate(ctx, stdout, stderr)
 	}
-	if len(args) == 0 || providers[args[0]] == nil {
+	if providers[args[0]] == nil {
 		return usage(stderr)
 	}
 	var o options
@@ -147,7 +155,12 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return err
 	})
 	flags.StringVar(&o.Filter, "filter", "", "")
-	if err := flags.Parse(args[1:]); err != nil || flags.NArg() > 0 {
+	err := flags.Parse(args[1:])
+	if errors.Is(err, flag.ErrHelp) {
+		_, _ = fmt.Fprint(stdout, helpText)
+		return 0
+	}
+	if err != nil || flags.NArg() > 0 {
 		return usage(stderr)
 	}
 	autoUpdate(ctx, args, getenv, stderr)
@@ -164,7 +177,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 }
 
 func usage(stderr io.Writer) int {
-	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME] [--filter RULES]\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
+	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME] [--filter RULES]\nrun `hark help` for the full reference\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 	return 2
 }
 

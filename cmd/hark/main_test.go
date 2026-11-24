@@ -18,12 +18,12 @@ func env(vars map[string]string) func(string) string {
 }
 
 func TestUsage(t *testing.T) {
-	for _, args := range [][]string{nil, {"gitlab"}, {"github", "extra"}} {
+	for _, args := range [][]string{{"gitlab"}, {"github", "extra"}} {
 		var stderr bytes.Buffer
 		if code := run(context.Background(), args, env(nil), nil, &stderr); code != 2 {
 			t.Errorf("%v: exit %d, want 2", args, code)
 		}
-		if stderr.String() != "usage: hark <github|jira|todoist> [--since TIME] [--filter RULES]\n" {
+		if stderr.String() != "usage: hark <github|jira|todoist> [--since TIME] [--filter RULES]\nrun `hark help` for the full reference\n" {
 			t.Errorf("%v: stderr %q", args, stderr.String())
 		}
 	}
@@ -31,7 +31,7 @@ func TestUsage(t *testing.T) {
 
 func TestMainExitsWithRunCode(t *testing.T) {
 	defer func(args []string) { os.Args, exit = args, os.Exit }(os.Args)
-	os.Args = []string{"hark"}
+	os.Args = []string{"hark", "gitlab"}
 	var code int
 	exit = func(c int) { code = c }
 	main()

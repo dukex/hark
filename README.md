@@ -54,6 +54,8 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
+   Then run `hark help` and read it: it describes every line hark prints,
+   every flag and how to restart a monitor without losing events.
 2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start
    monitors for providers whose checks all pass.
    Start a background monitor running `hark github 2>&1`, described as
@@ -105,6 +107,8 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 ```
 
 ## Options
+
+`hark help` (or `hark` alone) prints the full command line reference, written for agents.
 
 `hark <provider> [--since TIME] [--filter RULES]`
 

@@ -87,3 +87,52 @@ func TestFilterAppliesToMyOwnActions(t *testing.T) {
 		t.Errorf("reason: should only match notifications, got %v", lines(events))
 	}
 }
+
+func TestFilterExclusions(t *testing.T) {
+	f, err := ParseFilter("org:acme -repo:acme/legacy -reason:subscribed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		repo, reason string
+		want         bool
+	}{
+		{"acme/lib", "mention", true},
+		{"ACME/Legacy", "mention", false},
+		{"acme/lib", "subscribed", false},
+		{"dukex/foo", "mention", false},
+	} {
+		if got := f.match(c.repo, c.reason, "pr"); got != c.want {
+			t.Errorf("%+v: %v", c, got)
+		}
+	}
+	only, _ := ParseFilter("-org:acme -org:other")
+	if only.match("acme/lib", "", "pr") || only.match("other/x", "", "pr") || !only.match("dukex/foo", "", "pr") {
+		t.Error("repeated exclusions should each drop their matches")
+	}
+	for in, want := range map[string]string{
+		"-label:bug":     `unknown qualifier "label:", hark knows repo, org, reason and is`,
+		"-is:discussion": `is: takes issue, pr or ci, not "discussion"`,
+		"-":              `"-" is not a qualifier like repo:owner/name`,
+	} {
+		if _, err := ParseFilter(in); err == nil || err.Error() != want {
+			t.Errorf("%s: %v", in, err)
+		}
+	}
+}
+
+func TestExcludedThreadsStayUnread(t *testing.T) {
+	routes := baseRoutes()
+	routes["/notifications"] = `[` +
+		thread("2", "mention", "Issue", "/repos/acme/legacy/issues/40", "", "2026-11-23T10:07:00Z") + `,` +
+		thread("1", "author", "Issue", "/repos/dukex/foo/issues/3", "", "2026-11-23T10:05:00Z") + `]`
+	routes["/repos/dukex/foo/issues/3"] = `{"number":3,"user":{"login":"dukex"},"html_url":"u"}`
+	f := newFake(t, routes)
+	w := f.watcher()
+	w.Filter, _ = ParseFilter("-repo:acme/legacy")
+
+	assertLines(t, w.poll(context.Background()), `2026-11-23T10:05:00Z github issue.updated dukex/foo#3 "author" u`)
+	if strings.Join(f.marked, ",") != "1" {
+		t.Errorf("marked %v, want the excluded thread left unread", f.marked)
+	}
+}

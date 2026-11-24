@@ -59,8 +59,7 @@ func (w *Watcher) Watch(ctx context.Context, emit func(hark.Event)) error {
 		w.state.Cursor = w.Now().Add(-backlog)
 	}
 	if w.Filter != "" {
-		var page struct{}
-		if err := w.get(ctx, "/tasks/filter?"+url.Values{"query": {w.Filter}, "limit": {"1"}}.Encode(), &page); err != nil {
+		if _, err := w.matching(ctx, w.Now().Add(-backlog), w.Now(), true); err != nil {
 			return fmt.Errorf("--filter %q: %w", w.Filter, err)
 		}
 	}
@@ -124,9 +123,12 @@ func (w *Watcher) activity(ctx context.Context) []hark.Event {
 		q.Set("cursor", page.NextCursor)
 	}
 	slices.SortStableFunc(all, func(a, b activity) int { return a.EventDate.Compare(b.EventDate) })
-	keep, err := w.matching(ctx, all)
-	if err != nil {
-		return []hark.Event{w.failure(err)}
+	var keep map[string]bool
+	if w.Filter != "" && len(all) > 0 {
+		var err error
+		if keep, err = w.matching(ctx, all[0].EventDate, all[len(all)-1].EventDate.Add(time.Second), false); err != nil {
+			return []hark.Event{w.failure(err)}
+		}
 	}
 
 	var events []hark.Event
@@ -150,22 +152,22 @@ func (w *Watcher) activity(ctx context.Context) []hark.Event {
 	return events
 }
 
-func (w *Watcher) matching(ctx context.Context, all []activity) (map[string]bool, error) {
-	if w.Filter == "" || len(all) == 0 {
-		return nil, nil
-	}
+func (w *Watcher) matching(ctx context.Context, since, until time.Time, probe bool) (map[string]bool, error) {
 	ids := map[string]bool{}
-	until := all[len(all)-1].EventDate.Add(time.Second)
+	limit := "200"
+	if probe {
+		limit = "1"
+	}
 	for _, r := range []struct {
 		path  string
 		query url.Values
 	}{
-		{"/tasks/filter", url.Values{"query": {w.Filter}, "limit": {"200"}}},
+		{"/tasks/filter", url.Values{"query": {w.Filter}, "limit": {limit}}},
 		{"/tasks/completed/by_completion_date", url.Values{
 			"filter_query": {w.Filter},
-			"since":        {w.state.Cursor.UTC().Format(time.RFC3339)},
+			"since":        {since.UTC().Format(time.RFC3339)},
 			"until":        {until.UTC().Format(time.RFC3339)},
-			"limit":        {"200"},
+			"limit":        {limit},
 		}},
 	} {
 		for {
@@ -180,7 +182,7 @@ func (w *Watcher) matching(ctx context.Context, all []activity) (map[string]bool
 			for _, t := range append(page.Results, page.Items...) {
 				ids[t.ID] = true
 			}
-			if page.NextCursor == "" {
+			if page.NextCursor == "" || probe {
 				break
 			}
 			r.query.Set("cursor", page.NextCursor)

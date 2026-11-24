@@ -7,21 +7,22 @@ import (
 )
 
 func TestParseFilter(t *testing.T) {
-	f, err := ParseFilter("repo:dukex/foo  repo:acme/lib is:pr reason:mention org:acme")
+	f, err := ParseFilter("repo:dukex/foo  repo:acme/lib is:pr reason:mention reason:review-requested org:acme")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(f["repo"]) != 2 || f["is"][0] != "pr" || f["reason"][0] != "mention" || f["org"][0] != "acme" {
+	if len(f["repo"]) != 2 || f["is"][0] != "pr" || f["reason"][1] != "review_requested" || f["org"][0] != "acme" {
 		t.Errorf("%v", f)
 	}
 	if f, err := ParseFilter(""); err != nil || len(f) != 0 {
 		t.Errorf("empty: %v, %v", f, err)
 	}
 	for in, want := range map[string]string{
-		"dukex/foo":     `"dukex/foo" is not a qualifier like repo:owner/name`,
-		"repo:":         `"repo:" is not a qualifier like repo:owner/name`,
-		"label:bug":     `unknown qualifier "label:", hark knows repo, org, reason and is`,
-		"is:discussion": `is: takes issue, pr or ci, not "discussion"`,
+		"dukex/foo":      `"dukex/foo" is not a qualifier like repo:owner/name`,
+		"repo:":          `"repo:" is not a qualifier like repo:owner/name`,
+		"label:bug":      `unknown qualifier "label:", hark knows repo, org, reason and is`,
+		"is:discussion":  `is: takes issue, pr or ci, not "discussion"`,
+		"reason:mentoin": `unknown reason "mentoin", see docs.github.com/rest/activity/notifications#about-notification-reasons`,
 	} {
 		if _, err := ParseFilter(in); err == nil || err.Error() != want {
 			t.Errorf("%s: %v", in, err)

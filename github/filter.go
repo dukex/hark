@@ -9,6 +9,11 @@ import (
 // Filter keeps only the threads that match every qualifier, and any of the values given for it.
 type Filter map[string][]string
 
+var reasons = []string{
+	"approval_requested", "assign", "author", "ci_activity", "comment", "invitation", "manual", "member_feature_requested",
+	"mention", "review_requested", "security_advisory_credit", "security_alert", "state_change", "subscribed", "team_mention",
+}
+
 // ParseFilter reads qualifiers from github.com notifications search: repo:, org:, reason: and is:issue|pr|ci.
 func ParseFilter(s string) (Filter, error) {
 	f := Filter{}
@@ -21,6 +26,11 @@ func ParseFilter(s string) (Filter, error) {
 			return nil, fmt.Errorf("unknown qualifier %q, hark knows repo, org, reason and is", key+":")
 		case key == "is" && !slices.Contains([]string{"issue", "pr", "ci"}, value):
 			return nil, fmt.Errorf("is: takes issue, pr or ci, not %q", value)
+		case key == "reason":
+			value = strings.ReplaceAll(value, "-", "_")
+			if !slices.Contains(reasons, value) {
+				return nil, fmt.Errorf("unknown reason %q, see docs.github.com/rest/activity/notifications#about-notification-reasons", value)
+			}
 		}
 		f[key] = append(f[key], value)
 	}

@@ -118,7 +118,7 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 
 | Provider | RULES | Example |
 |----------|-------|---------|
-| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review_requested`, `author`...), `is:issue`, `is:pr`, `is:ci`. Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme is:pr'` |
+| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`. Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme is:pr'` |
 | `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'` |
 | `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'` |
 
@@ -139,7 +139,7 @@ Known limits:
 
 - GitHub delays the events API by 30 seconds up to a few hours, so your own actions can show up late.
 - Each poll reports only the latest comment on a thread. Two comments within a minute show as one.
-- Each poll reads one page of 50 notifications, so a `--since` far back takes a few polls to catch up.
+- Each poll reads one page of 50 notifications. Threads hark handles are marked as read and leave the page, so a `--since` far back takes a few polls to catch up. Threads it skips (releases, discussions, or dropped by `--filter`) stay unread and keep their place, so 50 of them hide anything older.
 
 | Kind | When |
 |------|------|

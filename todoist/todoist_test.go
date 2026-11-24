@@ -354,7 +354,7 @@ func TestFilterKeepsOnlyMatchingTasks(t *testing.T) {
 		`2026-11-23T20:05:00Z todoist task.created "Nova" https://app.todoist.com/app/task/t1`,
 		`2026-11-23T20:10:00Z todoist task.completed "Feita" https://app.todoist.com/app/task/t2`,
 		`2026-11-23T20:15:00Z todoist task.commented "comentário" https://app.todoist.com/app/task/task9`)
-	if done := f.asked[2]; done.Get("since") != "2026-11-23T20:00:00Z" || done.Get("until") != "2026-11-23T20:20:01Z" {
+	if done := f.asked[2]; done.Get("since") != "2026-11-23T20:05:00Z" || done.Get("until") != "2026-11-23T20:20:01Z" {
 		t.Errorf("completed window %v", done)
 	}
 	if !w.state.Cursor.Equal(time.Date(2026, 11, 23, 20, 20, 0, 0, time.UTC)) {
@@ -407,11 +407,18 @@ func TestFilterIsCheckedOnStart(t *testing.T) {
 	}
 	f.tasks = map[string]string{"/tasks/filter #Work ": `{"results":[],"next_cursor":null}`}
 	w.Filter = "#Work"
+	if err := w.Watch(context.Background(), func(hark.Event) {}); err == nil || !strings.Contains(err.Error(), `--filter "#Work": GET /tasks/completed/by_completion_date: 404`) {
+		t.Fatalf("err %v", err)
+	}
+	f.tasks["/tasks/completed/by_completion_date #Work "] = `{"items":[]}`
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := w.Watch(ctx, func(hark.Event) { cancel() }); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.asked[1]; got.Get("query") != "#Work" || got.Get("limit") != "1" {
 		t.Errorf("probe %v", got)
+	}
+	if got := f.asked[len(f.asked)-2]; got.Get("filter_query") != "#Work" || got.Get("since") != "2026-11-23T20:00:00Z" || got.Get("until") != "2026-11-23T21:00:00Z" || got.Get("limit") != "1" {
+		t.Errorf("completed probe %v", got)
 	}
 }

@@ -21,7 +21,7 @@ func TestTodoistNeedsToken(t *testing.T) {
 
 func TestTodoistDefaults(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "/xdg")
-	p, err := newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "tok"}))
+	p, err := newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "tok"}), options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestTodoistDefaults(t *testing.T) {
 	if w.API != "https://api.todoist.com/api/v1" || w.Token != "tok" || w.State != "/xdg/hark/todoist.json" {
 		t.Errorf("%+v", w)
 	}
-	p, _ = newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "tok", "HARK_TODOIST_API": "http://local"}))
+	p, _ = newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "tok", "HARK_TODOIST_API": "http://local"}), options{})
 	if p.(*todoist.Watcher).API != "http://local" {
 		t.Errorf("override ignored")
 	}
@@ -38,7 +38,7 @@ func TestTodoistDefaults(t *testing.T) {
 func TestTodoistWithoutStateDir(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "")
 	t.Setenv("HOME", "")
-	if _, err := newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "tok"})); err == nil {
+	if _, err := newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "tok"}), options{}); err == nil {
 		t.Error("want error without a state directory")
 	}
 }

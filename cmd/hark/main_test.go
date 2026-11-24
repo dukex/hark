@@ -23,7 +23,7 @@ func TestUsage(t *testing.T) {
 		if code := run(context.Background(), args, env(nil), nil, &stderr); code != 2 {
 			t.Errorf("%v: exit %d, want 2", args, code)
 		}
-		if stderr.String() != "usage: hark <github|jira|todoist>\n" {
+		if stderr.String() != "usage: hark <github|jira|todoist> [--since TIME]\n" {
 			t.Errorf("%v: stderr %q", args, stderr.String())
 		}
 	}
@@ -71,7 +71,7 @@ func TestMissingTokenIsReported(t *testing.T) {
 }
 
 func TestDefaultAPIIsGitHubCom(t *testing.T) {
-	p, err := newGitHub(env(map[string]string{"GITHUB_TOKEN": "t"}))
+	p, err := newGitHub(env(map[string]string{"GITHUB_TOKEN": "t"}), options{})
 	if err != nil {
 		t.Fatal(err)
 	}

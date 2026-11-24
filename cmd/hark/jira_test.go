@@ -24,7 +24,7 @@ func TestJiraNeedsCredentials(t *testing.T) {
 
 func TestJiraConfig(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "/xdg")
-	p, err := newJira(env(map[string]string{"JIRA_URL": "https://example.atlassian.net", "JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"}))
+	p, err := newJira(env(map[string]string{"JIRA_URL": "https://example.atlassian.net", "JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"}), options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestJiraConfig(t *testing.T) {
 	}
 	t.Setenv("XDG_STATE_HOME", "")
 	t.Setenv("HOME", "")
-	if _, err := newJira(env(map[string]string{"JIRA_URL": "u", "JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"})); err == nil {
+	if _, err := newJira(env(map[string]string{"JIRA_URL": "u", "JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"}), options{}); err == nil {
 		t.Error("want error without a state directory")
 	}
 }

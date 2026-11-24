@@ -24,6 +24,7 @@ type Watcher struct {
 	Client   *http.Client
 	Interval time.Duration
 	Now      func() time.Time
+	Since    time.Time
 
 	me        string
 	started   time.Time
@@ -122,7 +123,7 @@ func (w *Watcher) poll(ctx context.Context) []hark.Event {
 
 func (w *Watcher) notifications(ctx context.Context) []hark.Event {
 	var threads []notification
-	q := url.Values{"since": {w.started.Add(-backlog).Format(time.RFC3339)}}
+	q := url.Values{"since": {w.since(backlog).UTC().Format(time.RFC3339)}}
 	if err := w.do(ctx, http.MethodGet, w.API+"/notifications?"+q.Encode(), &threads); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
@@ -142,7 +143,7 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 	for i := len(list) - 1; i >= 0; i-- {
 		o := list[i]
 		id, _ := strconv.ParseInt(o.ID, 10, 64)
-		if id <= w.lastEvent || o.CreatedAt.Before(w.started) {
+		if id <= w.lastEvent || o.CreatedAt.Before(w.since(0)) {
 			continue
 		}
 		w.lastEvent = id
@@ -204,7 +205,7 @@ func ci(n notification) hark.Event {
 
 func (w *Watcher) discussion(ctx context.Context, n notification, kind string) ([]hark.Event, error) {
 	prev := n.LastReadAt
-	if floor := w.started.Add(-backlog); prev.Before(floor) {
+	if floor := w.since(backlog); prev.Before(floor) {
 		prev = floor
 	}
 	var s subject
@@ -295,6 +296,13 @@ func (w *Watcher) reviews(ctx context.Context, base hark.Event, pull string, pre
 		events = append(events, e)
 	}
 	return events, nil
+}
+
+func (w *Watcher) since(backlog time.Duration) time.Time {
+	if !w.Since.IsZero() {
+		return w.Since
+	}
+	return w.started.Add(-backlog)
 }
 
 func (w *Watcher) failure(err error) hark.Event {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"maps"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/dukex/hark"
 	"github.com/dukex/hark/github"
@@ -40,13 +42,19 @@ var (
 
 var errNotConfigured = errors.New("not configured")
 
-var providers = map[string]func(getenv func(string) string) (hark.Provider, error){
+type options struct {
+	Since time.Time
+}
+
+type constructor func(getenv func(string) string, o options) (hark.Provider, error)
+
+var providers = map[string]constructor{
 	"github":  newGitHub,
 	"jira":    newJira,
 	"todoist": newTodoist,
 }
 
-func newGitHub(getenv func(string) string) (hark.Provider, error) {
+func newGitHub(getenv func(string) string, o options) (hark.Provider, error) {
 	token := getenv("GITHUB_TOKEN")
 	if token == "" {
 		t, err := ghToken()
@@ -59,10 +67,12 @@ func newGitHub(getenv func(string) string) (hark.Provider, error) {
 	if api == "" {
 		api = "https://api.github.com"
 	}
-	return github.New(api, token), nil
+	w := github.New(api, token)
+	w.Since = o.Since
+	return w, nil
 }
 
-func newTodoist(getenv func(string) string) (hark.Provider, error) {
+func newTodoist(getenv func(string) string, o options) (hark.Provider, error) {
 	token := getenv("TODOIST_API_TOKEN")
 	if token == "" {
 		return nil, fmt.Errorf("%w: set TODOIST_API_TOKEN to a token from Todoist settings, Integrations, Developer", errNotConfigured)
@@ -71,10 +81,12 @@ func newTodoist(getenv func(string) string) (hark.Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return todoist.New(cmp.Or(getenv("HARK_TODOIST_API"), "https://api.todoist.com/api/v1"), token, state), nil
+	w := todoist.New(cmp.Or(getenv("HARK_TODOIST_API"), "https://api.todoist.com/api/v1"), token, state)
+	w.Since = o.Since
+	return w, nil
 }
 
-func newJira(getenv func(string) string) (hark.Provider, error) {
+func newJira(getenv func(string) string, o options) (hark.Provider, error) {
 	var missing []string
 	for _, name := range []string{"JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"} {
 		if getenv(name) == "" {
@@ -88,7 +100,9 @@ func newJira(getenv func(string) string) (hark.Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return jira.New(getenv("JIRA_URL"), getenv("JIRA_EMAIL"), getenv("JIRA_API_TOKEN"), state), nil
+	w := jira.New(getenv("JIRA_URL"), getenv("JIRA_EMAIL"), getenv("JIRA_API_TOKEN"), state)
+	w.Since = o.Since
+	return w, nil
 }
 
 func main() {
@@ -116,12 +130,22 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	if len(args) == 1 && args[0] == "update" {
 		return selfUpdate(ctx, stdout, stderr)
 	}
-	if len(args) != 1 || providers[args[0]] == nil {
-		_, _ = fmt.Fprintf(stderr, "usage: hark <%s>\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
-		return 2
+	if len(args) == 0 || providers[args[0]] == nil {
+		return usage(stderr)
+	}
+	var o options
+	flags := flag.NewFlagSet("hark "+args[0], flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {}
+	flags.Func("since", "", func(s string) (err error) {
+		o.Since, err = parseSince(s)
+		return err
+	})
+	if err := flags.Parse(args[1:]); err != nil || flags.NArg() > 0 {
+		return usage(stderr)
 	}
 	autoUpdate(ctx, args, getenv, stderr)
-	p, err := providers[args[0]](getenv)
+	p, err := providers[args[0]](getenv, o)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
@@ -131,6 +155,21 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return 1
 	}
 	return 0
+}
+
+func usage(stderr io.Writer) int {
+	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME]\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
+	return 2
+}
+
+func parseSince(s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+	if t, err := time.ParseInLocation(time.DateOnly, s, time.Local); err == nil {
+		return t, nil
+	}
+	return time.Time{}, errors.New("want a time like 2026-11-23T10:05:00Z or a date like 2026-11-23")
 }
 
 func autoUpdate(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) {
@@ -155,7 +194,7 @@ func doctor(ctx context.Context, getenv func(string) string, stdout io.Writer) i
 	failed, configured := false, 0
 	for _, name := range slices.Sorted(maps.Keys(providers)) {
 		_, _ = fmt.Fprintln(stdout, name)
-		p, err := providers[name](getenv)
+		p, err := providers[name](getenv, options{})
 		if errors.Is(err, errNotConfigured) {
 			_, _ = fmt.Fprintln(stdout, "  -", err)
 			continue

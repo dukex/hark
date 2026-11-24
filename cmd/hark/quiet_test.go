@@ -26,8 +26,8 @@ func TestRepeatedErrorsArePrintedOnce(t *testing.T) {
 	old, oldVersion := providers, version
 	t.Cleanup(func() { providers, version = old, oldVersion })
 	version = "dev"
-	providers = map[string]func(func(string) string) (hark.Provider, error){
-		"todoist": func(func(string) string) (hark.Provider, error) {
+	providers = map[string]constructor{
+		"todoist": func(func(string) string, options) (hark.Provider, error) {
 			return scripted{activityDown, filterDown, activityDown, filterDown, done, activityDown, activityDown}, nil
 		},
 	}

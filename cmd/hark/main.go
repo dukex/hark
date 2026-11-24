@@ -43,7 +43,8 @@ var (
 var errNotConfigured = errors.New("not configured")
 
 type options struct {
-	Since time.Time
+	Since  time.Time
+	Filter string
 }
 
 type constructor func(getenv func(string) string, o options) (hark.Provider, error)
@@ -67,8 +68,12 @@ func newGitHub(getenv func(string) string, o options) (hark.Provider, error) {
 	if api == "" {
 		api = "https://api.github.com"
 	}
+	filter, err := github.ParseFilter(o.Filter)
+	if err != nil {
+		return nil, fmt.Errorf("--filter: %w", err)
+	}
 	w := github.New(api, token)
-	w.Since = o.Since
+	w.Since, w.Filter = o.Since, filter
 	return w, nil
 }
 
@@ -82,7 +87,7 @@ func newTodoist(getenv func(string) string, o options) (hark.Provider, error) {
 		return nil, err
 	}
 	w := todoist.New(cmp.Or(getenv("HARK_TODOIST_API"), "https://api.todoist.com/api/v1"), token, state)
-	w.Since = o.Since
+	w.Since, w.Filter = o.Since, o.Filter
 	return w, nil
 }
 
@@ -101,7 +106,7 @@ func newJira(getenv func(string) string, o options) (hark.Provider, error) {
 		return nil, err
 	}
 	w := jira.New(getenv("JIRA_URL"), getenv("JIRA_EMAIL"), getenv("JIRA_API_TOKEN"), state)
-	w.Since = o.Since
+	w.Since, w.Filter = o.Since, o.Filter
 	return w, nil
 }
 
@@ -141,6 +146,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		o.Since, err = parseSince(s)
 		return err
 	})
+	flags.StringVar(&o.Filter, "filter", "", "")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() > 0 {
 		return usage(stderr)
 	}
@@ -158,7 +164,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 }
 
 func usage(stderr io.Writer) int {
-	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME]\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
+	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME] [--filter RULES]\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 	return 2
 }
 

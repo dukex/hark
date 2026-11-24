@@ -319,3 +319,45 @@ func TestSinceOverridesTheSavedCursor(t *testing.T) {
 		t.Errorf("state %+v", w.state)
 	}
 }
+
+func TestFilterNarrowsTheSearch(t *testing.T) {
+	f := newFake(t, map[string]string{"": page("")})
+	w := f.watcher(t)
+	w.Filter = "project = PROJ"
+	w.poll(context.Background())
+	if got := f.queries[0].Get("jql"); got != follows+" AND (project = PROJ) AND updated >= -62m ORDER BY updated ASC" {
+		t.Errorf("jql %q", got)
+	}
+}
+
+func TestFilterIsCheckedOnStart(t *testing.T) {
+	w := New(newFake(t, map[string]string{}).URL, "duke@example.com", "secret", filepath.Join(t.TempDir(), "jira.json"))
+	w.Filter = "projekt = PROJ"
+	if err := w.Watch(context.Background(), func(hark.Event) {}); err == nil || !strings.Contains(err.Error(), `--filter "projekt = PROJ": GET /rest/api/3/search/jql: 404`) {
+		t.Fatalf("err %v", err)
+	}
+
+	f := newFake(t, map[string]string{"": page("")})
+	w = New(f.URL, "duke@example.com", "secret", filepath.Join(t.TempDir(), "jira.json"))
+	w.Filter = "project = PROJ"
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			f.mu.Lock()
+			n := len(f.queries)
+			f.mu.Unlock()
+			if n >= 2 {
+				cancel()
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	w.Interval = time.Millisecond
+	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.queries[0]; got.Get("jql") != follows+" AND (project = PROJ)" || got.Get("maxResults") != "1" {
+		t.Errorf("probe %v", got)
+	}
+}

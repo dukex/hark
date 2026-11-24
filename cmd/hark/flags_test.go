@@ -40,7 +40,7 @@ func TestBadSinceIsAUsageError(t *testing.T) {
 		if code := run(context.Background(), args, env(nil), nil, &stderr); code != 2 {
 			t.Errorf("%v: exit %d", args, code)
 		}
-		if !strings.HasSuffix(stderr.String(), "usage: hark <github|jira|todoist> [--since TIME]\n") {
+		if !strings.HasSuffix(stderr.String(), "usage: hark <github|jira|todoist> [--since TIME] [--filter RULES]\n") {
 			t.Errorf("%v: stderr %q", args, stderr.String())
 		}
 	}
@@ -65,5 +65,39 @@ func TestConstructorsSetSince(t *testing.T) {
 		if !since.Equal(o.Since) {
 			t.Errorf("%s: since %v", name, since)
 		}
+	}
+}
+
+func TestFilterIsPassedToTheProvider(t *testing.T) {
+	var got options
+	withProviders(t, map[string]constructor{
+		"jira": func(_ func(string) string, o options) (hark.Provider, error) {
+			got = o
+			return fakeProvider{}, nil
+		},
+	})
+	if code := run(context.Background(), []string{"jira", "--filter", "project = PROJ", "--since", "2026-11-23"}, env(map[string]string{"HARK_NO_UPDATE": "1"}), nil, nil); code != 0 || got.Filter != "project = PROJ" || got.Since.IsZero() {
+		t.Errorf("exit %d, options %+v", code, got)
+	}
+}
+
+func TestConstructorsSetFilter(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	gh, _ := newGitHub(env(map[string]string{"GITHUB_TOKEN": "t"}), options{Filter: "org:acme is:pr"})
+	if f := gh.(*github.Watcher).Filter; len(f["org"]) != 1 || f["is"][0] != "pr" {
+		t.Errorf("github filter %v", f)
+	}
+	jr, _ := newJira(env(map[string]string{"JIRA_URL": "u", "JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"}), options{Filter: "project = PROJ"})
+	td, _ := newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "t"}), options{Filter: "#Work"})
+	if jr.(*jira.Watcher).Filter != "project = PROJ" || td.(*todoist.Watcher).Filter != "#Work" {
+		t.Errorf("jira %q, todoist %q", jr.(*jira.Watcher).Filter, td.(*todoist.Watcher).Filter)
+	}
+}
+
+func TestBadGitHubFilterStopsHark(t *testing.T) {
+	var stderr bytes.Buffer
+	code := run(context.Background(), []string{"github", "--filter", "label:bug"}, env(map[string]string{"GITHUB_TOKEN": "t", "HARK_NO_UPDATE": "1"}), nil, &stderr)
+	if code != 1 || stderr.String() != "hark: --filter: unknown qualifier \"label:\", hark knows repo, org, reason and is\n" {
+		t.Errorf("exit %d, stderr %q", code, stderr.String())
 	}
 }

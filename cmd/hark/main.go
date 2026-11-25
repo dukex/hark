@@ -216,7 +216,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return doctor(ctx, getenv, stdout)
 	}
 	if args[0] == "login" && len(args) <= 2 {
-		return login(getenv, strings.Join(args[1:], ""), stdout, stderr)
+		return login(ctx, getenv, strings.Join(args[1:], ""), stdout, stderr)
 	}
 	if len(args) == 1 && args[0] == "update" {
 		return selfUpdate(ctx, stdout, stderr)

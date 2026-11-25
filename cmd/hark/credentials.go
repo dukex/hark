@@ -14,13 +14,15 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 )
 
 const service = "hark"
 
 var (
-	goos            = runtime.GOOS
-	stdin io.Reader = os.Stdin
+	goos                      = runtime.GOOS
+	stdin           io.Reader = os.Stdin
+	keychainTimeout           = 5 * time.Second
 )
 
 type field struct {
@@ -78,32 +80,34 @@ func credentials(getenv func(string) string) func(string) string {
 	}
 }
 
-func command(getenv func(string) string, name string, args ...string) *exec.Cmd {
+func command(ctx context.Context, getenv func(string) string, name string, args ...string) *exec.Cmd {
 	for _, dir := range filepath.SplitList(getenv("PATH")) {
 		path := filepath.Join(dir, name)
 		if info, err := os.Stat(path); err == nil && info.Mode()&0o111 != 0 {
-			return exec.CommandContext(context.Background(), path, args...)
+			return exec.CommandContext(ctx, path, args...)
 		}
 	}
 	return nil
 }
 
-func keychainCommand(getenv func(string) string, args ...string) *exec.Cmd {
+func keychainCommand(ctx context.Context, getenv func(string) string, args ...string) *exec.Cmd {
 	switch goos {
 	case "darwin":
-		return command(getenv, "security", args...)
+		return command(ctx, getenv, "security", args...)
 	case "linux":
-		return command(getenv, "secret-tool", args...)
+		return command(ctx, getenv, "secret-tool", args...)
 	}
 	return nil
 }
 
 func keychainGet(getenv func(string) string, name string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), keychainTimeout)
+	defer cancel()
 	args := []string{"lookup", "service", service, "account", name}
 	if goos == "darwin" {
 		args = []string{"find-generic-password", "-s", service, "-a", name, "-w"}
 	}
-	cmd := keychainCommand(getenv, args...)
+	cmd := keychainCommand(ctx, getenv, args...)
 	if cmd == nil {
 		return ""
 	}
@@ -114,20 +118,34 @@ func keychainGet(getenv func(string) string, name string) string {
 	return strings.TrimSuffix(string(out), "\n")
 }
 
+func keychainDelete(getenv func(string) string, name string) {
+	args := []string{"clear", "service", service, "account", name}
+	if goos == "darwin" {
+		args = []string{"delete-generic-password", "-s", service, "-a", name}
+	}
+	if cmd := keychainCommand(context.Background(), getenv, args...); cmd != nil {
+		_ = cmd.Run()
+	}
+}
+
 var quote = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
 
 func keychainSet(getenv func(string) string, name, value string) bool {
-	cmd := keychainCommand(getenv, "store", "--label="+service+" "+name, "service", service, "account", name)
+	cmd := keychainCommand(context.Background(), getenv, "store", "--label="+service+" "+name, "service", service, "account", name)
 	input := value
 	if goos == "darwin" {
-		cmd = keychainCommand(getenv, "-i")
+		cmd = keychainCommand(context.Background(), getenv, "-i")
 		input = fmt.Sprintf("add-generic-password -U -s %s -a %s -w \"%s\"\n", service, name, quote.Replace(value))
 	}
 	if cmd == nil {
 		return false
 	}
 	cmd.Stdin = strings.NewReader(input)
-	return cmd.Run() == nil && keychainGet(getenv, name) == value
+	if cmd.Run() == nil && keychainGet(getenv, name) == value {
+		return true
+	}
+	keychainDelete(getenv, name)
+	return false
 }
 
 func credentialsPath(getenv func(string) string) string {
@@ -157,7 +175,12 @@ func writeCredentials(path string, values map[string]string) error {
 		return err
 	}
 	saved := readCredentials(path)
-	maps.Copy(saved, values)
+	for name, value := range values {
+		saved[name] = value
+		if value == "" {
+			delete(saved, name)
+		}
+	}
 	var b strings.Builder
 	for _, name := range slices.Sorted(maps.Keys(saved)) {
 		fmt.Fprintf(&b, "%s=%s\n", name, saved[name])
@@ -174,13 +197,13 @@ func echo(getenv func(string) string, on bool) {
 	if on {
 		arg = "echo"
 	}
-	if cmd := command(getenv, "stty", arg); ok && cmd != nil {
+	if cmd := command(context.Background(), getenv, "stty", arg); ok && cmd != nil {
 		cmd.Stdin = f
 		_ = cmd.Run()
 	}
 }
 
-func login(getenv func(string) string, provider string, stdout, stderr io.Writer) int {
+func login(ctx context.Context, getenv func(string) string, provider string, stdout, stderr io.Writer) int {
 	fields, ok := logins[provider]
 	if !ok {
 		_, _ = fmt.Fprintf(stderr, "usage: hark login <%s>\n", strings.Join(slices.Sorted(maps.Keys(logins)), "|"))
@@ -193,20 +216,23 @@ func login(getenv func(string) string, provider string, stdout, stderr io.Writer
 		if f.Secret {
 			echo(getenv, false)
 		}
-		line, err := in.ReadString('\n')
+		line, err := readLine(ctx, in)
 		if f.Secret {
 			echo(getenv, true)
 			_, _ = fmt.Fprintln(stdout)
 		}
 		value := strings.TrimSpace(line)
 		switch {
+		case ctx.Err() != nil:
+			_, _ = fmt.Fprintln(stderr, "hark: interrupted")
+			return 1
 		case err != nil && value == "" && !f.Optional:
 			_, _ = fmt.Fprintf(stderr, "hark: %s: %v\n", f.Name, err)
 			return 1
 		case value == "" && !f.Optional:
 			_, _ = fmt.Fprintf(stderr, "hark: %s is required\n", f.Name)
 			return 1
-		case value != "":
+		default:
 			values[f.Name] = value
 		}
 	}
@@ -219,18 +245,46 @@ func login(getenv func(string) string, provider string, stdout, stderr io.Writer
 	return 0
 }
 
+func readLine(ctx context.Context, in *bufio.Reader) (string, error) {
+	type answer struct {
+		line string
+		err  error
+	}
+	read := make(chan answer, 1)
+	go func() {
+		line, err := in.ReadString('\n')
+		read <- answer{line, err}
+	}()
+	select {
+	case a := <-read:
+		return a.line, a.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
 func save(getenv func(string) string, values map[string]string) (string, error) {
+	path := credentialsPath(getenv)
 	kept := true
+	forget := map[string]string{}
 	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if values[name] == "" {
+			keychainDelete(getenv, name)
+			forget[name] = ""
+			continue
+		}
 		kept = kept && keychainSet(getenv, name, values[name])
 	}
-	if kept && goos == "darwin" {
-		return "the macOS Keychain", nil
+	where := map[string]string{"darwin": "the macOS Keychain", "linux": "the Secret Service keyring"}[goos]
+	if kept && where != "" {
+		saved := readCredentials(path)
+		for name := range forget {
+			if saved[name] != "" {
+				return where, writeCredentials(path, forget)
+			}
+		}
+		return where, nil
 	}
-	if kept && goos == "linux" {
-		return "the Secret Service keyring", nil
-	}
-	path := credentialsPath(getenv)
 	if path == "" {
 		return "", errors.New("no keychain, and no HOME or XDG_CONFIG_HOME for ~/.config/hark/credentials")
 	}

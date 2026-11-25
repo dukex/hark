@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 const fakeSecurity = `#!/bin/sh
@@ -24,15 +25,21 @@ if [ "$1" = "-i" ]; then
 		esac
 		shift
 	done
-	[ -n "$BROKEN" ] && exit 0
+	[ -n "$BROKEN" ] && printf 'wrong' > "$KEYCHAIN/$account" && exit 0
 	printf '%s' "$password" > "$KEYCHAIN/$account"
 	exit 0
 fi
+cmd=$1
+[ -n "$SLOW" ] && sleep 2
 while [ $# -gt 0 ]; do
 	[ "$1" = "-a" ] && account=$2
 	shift
 done
 [ -f "$KEYCHAIN/$account" ] || exit 44
+if [ "$cmd" = "delete-generic-password" ]; then
+	rm "$KEYCHAIN/$account"
+	exit 0
+fi
 cat "$KEYCHAIN/$account"
 echo
 `
@@ -48,6 +55,10 @@ if [ "$cmd" = "store" ]; then
 	cat > "$KEYCHAIN/$account"
 	exit 0
 fi
+if [ "$cmd" = "clear" ]; then
+	rm -f "$KEYCHAIN/$account"
+	exit 0
+fi
 [ -f "$KEYCHAIN/$account" ] || exit 1
 cat "$KEYCHAIN/$account"
 `
@@ -61,6 +72,7 @@ func fakeKeychain(t *testing.T, system string) keychain {
 	k := keychain{dir: t.TempDir(), bin: t.TempDir()}
 	t.Setenv("KEYCHAIN", k.dir)
 	t.Setenv("BROKEN", "")
+	t.Setenv("SLOW", "")
 	write := func(name, body string) {
 		if err := os.WriteFile(filepath.Join(k.bin, name), []byte(body), 0o755); err != nil {
 			t.Fatal(err)
@@ -248,14 +260,72 @@ func TestLoginFallsBackToAFile(t *testing.T) {
 	}
 }
 
-func TestLoginSkipsOptionalAnswers(t *testing.T) {
+func TestAnEmptyOptionalAnswerForgetsTheSavedValue(t *testing.T) {
+	for _, system := range []string{"darwin", "linux"} {
+		t.Run(system, func(t *testing.T) {
+			k := fakeKeychain(t, system)
+			k.set(t, "DD_SITE", "datadoghq.eu")
+			config := t.TempDir()
+			saveFile(t, config, "DD_SITE=us5.datadoghq.com\nSLACK_TOKEN=xoxp-1\n")
+			answers(t, "api", "app", "")
+			vars := map[string]string{"PATH": k.bin, "XDG_CONFIG_HOME": config}
+			if code := run(context.Background(), []string{"login", "datadog"}, env(vars), &bytes.Buffer{}, nil); code != 0 {
+				t.Fatalf("exit %d", code)
+			}
+			if k.get("DD_API_KEY") != "api" || k.get("DD_APP_KEY") != "app" || k.get("DD_SITE") != "" {
+				t.Errorf("keychain %q %q %q", k.get("DD_API_KEY"), k.get("DD_APP_KEY"), k.get("DD_SITE"))
+			}
+			if b, _ := os.ReadFile(filepath.Join(config, "hark", "credentials")); string(b) != "SLACK_TOKEN=xoxp-1\n" {
+				t.Errorf("file %q", b)
+			}
+		})
+	}
+}
+
+func TestAValueTheKeychainGetsWrongIsRemoved(t *testing.T) {
 	k := fakeKeychain(t, "darwin")
-	answers(t, "api", "app", "")
-	if code := run(context.Background(), []string{"login", "datadog"}, env(map[string]string{"PATH": k.bin}), &bytes.Buffer{}, nil); code != 0 {
+	t.Setenv("BROKEN", "1")
+	answers(t, "lin_api_1")
+	vars := map[string]string{"PATH": k.bin, "HOME": t.TempDir()}
+	if code := run(context.Background(), []string{"login", "linear"}, env(vars), &bytes.Buffer{}, nil); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	if k.get("DD_API_KEY") != "api" || k.get("DD_APP_KEY") != "app" || k.get("DD_SITE") != "" {
-		t.Errorf("saved %q %q %q", k.get("DD_API_KEY"), k.get("DD_APP_KEY"), k.get("DD_SITE"))
+	if k.get("LINEAR_API_KEY") != "" || credentials(env(vars))("LINEAR_API_KEY") != "lin_api_1" {
+		t.Errorf("keychain %q", k.get("LINEAR_API_KEY"))
+	}
+}
+
+func TestAKeychainThatHangsIsSkipped(t *testing.T) {
+	defer func(d time.Duration) { keychainTimeout = d }(keychainTimeout)
+	keychainTimeout = 50 * time.Millisecond
+	k := fakeKeychain(t, "darwin")
+	k.set(t, "SLACK_TOKEN", "from-keychain")
+	t.Setenv("SLOW", "1")
+	start := time.Now()
+	if got := credentials(env(map[string]string{"PATH": k.bin, "SLACK_TOKEN": "from-env"}))("SLACK_TOKEN"); got != "from-env" {
+		t.Errorf("got %q", got)
+	}
+	if time.Since(start) > time.Second {
+		t.Errorf("waited %v for the keychain", time.Since(start))
+	}
+}
+
+func TestCtrlCStopsLogin(t *testing.T) {
+	k := fakeKeychain(t, "darwin")
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+	withStdin(t, r)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var stderr bytes.Buffer
+	if code := run(ctx, []string{"login", "linear"}, env(map[string]string{"PATH": k.bin}), &bytes.Buffer{}, &stderr); code != 1 || stderr.String() != "hark: interrupted\n" {
+		t.Errorf("exit %d, stderr %q", code, stderr.String())
+	}
+	if !strings.HasSuffix(k.calls(), "stty echo\n") {
+		t.Errorf("echo not restored: %q", k.calls())
 	}
 }
 

@@ -44,7 +44,7 @@ It sells what hark does for the agent; the line format is how it works, not the 
 ## Open research
 
 - `research/codex.md`: why hark doesn't work in Codex the way it does in Claude Code yet, what upstream change it waits for, and what to test before documenting a workaround.
-- `research/copilot.md`: how hark could work in Copilot CLI today by exiting after each batch of events, since Copilot wakes the agent when a background shell exits, and what to test first.
+- `research/copilot.md`: how hark works in Copilot CLI with `--exit-on-event`, since Copilot wakes the agent when a background shell exits, how that was validated and what is still untested.
 
 ## Commits and releases
 

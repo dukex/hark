@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/dukex/hark"
+	"github.com/dukex/hark/datadog"
 	"github.com/dukex/hark/github"
 	"github.com/dukex/hark/jira"
 	"github.com/dukex/hark/slack"
@@ -55,6 +56,7 @@ type options struct {
 type constructor func(getenv func(string) string, o options) (hark.Provider, error)
 
 var providers = map[string]constructor{
+	"datadog": newDatadog,
 	"github":  newGitHub,
 	"jira":    newJira,
 	"slack":   newSlack,
@@ -112,6 +114,30 @@ func newJira(getenv func(string) string, o options) (hark.Provider, error) {
 		return nil, err
 	}
 	w := jira.New(getenv("JIRA_URL"), getenv("JIRA_EMAIL"), getenv("JIRA_API_TOKEN"), state)
+	w.Since, w.Filter = o.Since, o.Filter
+	return w, nil
+}
+
+func newDatadog(getenv func(string) string, o options) (hark.Provider, error) {
+	var missing []string
+	for _, name := range []string{"DD_API_KEY", "DD_APP_KEY"} {
+		if getenv(name) == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("%w: set %s (keys from Datadog, Organization Settings, API Keys and Application Keys) and DD_SITE if not datadoghq.com", errNotConfigured, strings.Join(missing, ", "))
+	}
+	state, err := hark.StatePath("datadog")
+	if err != nil {
+		return nil, err
+	}
+	site := cmp.Or(getenv("DD_SITE"), "datadoghq.com")
+	app := "https://" + site
+	if strings.Count(site, ".") == 1 {
+		app = "https://app." + site
+	}
+	w := datadog.New(cmp.Or(getenv("HARK_DATADOG_API"), "https://api."+site), app, getenv("DD_API_KEY"), getenv("DD_APP_KEY"), state)
 	w.Since, w.Filter = o.Since, o.Filter
 	return w, nil
 }

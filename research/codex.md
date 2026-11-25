@@ -32,6 +32,8 @@ Where it stands:
 | Background terminals (`unified_exec`, `/ps`, `/stop`) | Only when the model polls | No | Documented |
 | [MCP events](https://developers.openai.com/plugins/build/mcp-events) | An MCP server can return an event later without polling | Not established | Experimental, described as limited in #29922 |
 
+Making hark exit after each batch of events, so the agent wakes when the process ends, works in Copilot CLI (see [copilot.md](copilot.md)) but not here: Codex background processes don't wake the agent when they finish (openai/codex#15723).
+
 ## Interim bridge, if Codex users need hark before #29922
 
 Run hark outside the agent and push its lines into the session with `codex queue`, batching lines that arrive within a few seconds so each burst is one turn, not one turn per line.

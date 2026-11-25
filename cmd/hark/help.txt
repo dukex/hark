@@ -186,8 +186,9 @@ KINDS
 
   Your own actions: github reports the ones you make (pr.opened, closing,
   merging) from your public activity, which GitHub can delay by up to a few
-  hours. jira, linear and slack never report them. todoist reports
-  everyone's, including yours. datadog reports monitors, not people.
+  hours. jira and slack never report them. linear reports what reaches your
+  Linear inbox. todoist reports everyone's, including yours. datadog reports
+  monitors, not people.
 
 OPTIONS
   --since TIME

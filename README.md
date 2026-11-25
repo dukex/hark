@@ -216,7 +216,7 @@ Mentions on issues you don't follow are not reported.
 
 ## Linear
 
-`hark linear` needs `LINEAR_API_KEY`, a personal API key from Linear, Settings, Security & access, Personal API keys. Every minute it reads your Linear inbox notifications, archived ones included, so what you clear in the app while hark is stopped is still reported. Linear does not notify you about your own actions.
+`hark linear` needs `LINEAR_API_KEY`, a personal API key from Linear, Settings, Security & access, Personal API keys. Every minute it reads your Linear inbox notifications, archived ones included, so what you clear in the app while hark is stopped is still reported.
 
 It keeps its cursor in `~/.local/state/hark/linear.json` and the first run picks up the last hour. `--since` replaces the saved cursor.
 

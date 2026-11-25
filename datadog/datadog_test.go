@@ -73,6 +73,12 @@ func (f *fakeDatadog) asked() int {
 	return len(f.queries)
 }
 
+func (f *fakeDatadog) query(i int) url.Values {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.queries[i]
+}
+
 func eventJSON(id, at string, monitor int, from, to, title string) string {
 	return fmt.Sprintf(`{"id":%q,"type":"event","attributes":{"timestamp":"2026-11-23T%s.123Z","message":"m","tags":["team:a"],
 		"attributes":{"title":%q,"status":"error","timestamp":1,"monitor_id":%d,
@@ -186,7 +192,7 @@ func TestWatchResumesAndSavesState(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertLines(t, got, `2026-11-23T20:10:00Z datadog datadog.alert "down" `+app+`/monitors/1`)
-	if from := f.queries[0].Get("filter[from]"); from != ms(time.Date(2026, 11, 23, 20, 0, 0, 0, time.UTC)) {
+	if from := f.query(0).Get("filter[from]"); from != ms(time.Date(2026, 11, 23, 20, 0, 0, 0, time.UTC)) {
 		t.Errorf("from %s", from)
 	}
 	var saved struct {
@@ -213,7 +219,7 @@ func TestWatchStartsOneHourBackAndPollsAgain(t *testing.T) {
 	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.queries[0].Get("filter[from]"); got != ms(now.Add(-time.Hour)) {
+	if got := f.query(0).Get("filter[from]"); got != ms(now.Add(-time.Hour)) {
 		t.Errorf("from %s", got)
 	}
 }
@@ -238,7 +244,7 @@ func TestSinceOverridesTheSavedCursor(t *testing.T) {
 	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.queries[0].Get("filter[from]"); got != ms(w.Since) {
+	if got := f.query(0).Get("filter[from]"); got != ms(w.Since) {
 		t.Errorf("from %s", got)
 	}
 }
@@ -272,7 +278,7 @@ func TestFilterNarrowsTheQueryAndIsCheckedOnStart(t *testing.T) {
 	if err := w.Watch(ctx, func(hark.Event) {}); err != nil {
 		t.Fatal(err)
 	}
-	if probe := f.queries[0]; probe.Get("filter[query]") != "source:alert (service:api)" || probe.Get("page[limit]") != "1" {
+	if probe := f.query(0); probe.Get("filter[query]") != "source:alert (service:api)" || probe.Get("page[limit]") != "1" {
 		t.Errorf("probe %v", probe)
 	}
 }

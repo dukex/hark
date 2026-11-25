@@ -31,6 +31,8 @@ With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 hark 0.8.0
 datadog
   - not configured: set DD_API_KEY, DD_APP_KEY (...)
+discord
+  - not configured: set DISCORD_TOKEN and DISCORD_USER_ID (...)
 github
   ✓ token: logged in as you
   ✓ notifications: readable
@@ -61,7 +63,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 Paste this prompt into the session. It also works in Copilot CLI, which has no monitor but wakes the agent when a background command exits: there the agent runs hark with `--exit-on-event` and starts it again after each batch of events.
 
 ```text
-Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark while we work.
+Watch my Datadog, Discord, GitHub, Jira, Linear, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://hark.dukex.sh/install | sh`.
@@ -104,8 +106,8 @@ Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark whi
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
    `hark jira 2>&1`, described as "Jira activity on my issues". Jira, Linear,
-   Slack, Todoist and Datadog resume where they stopped on their own, so
-   re-arm them without `--since`:
+   Slack, Discord, Todoist and Datadog resume where they stopped on their own,
+   so re-arm them without `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
@@ -125,6 +127,10 @@ Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark whi
    "Slack mentions and DMs":
    - `slack.mentioned`, `slack.dm`: tell me who wrote, where, and what they
      ask for. Do not answer in Slack.
+   If doctor shows discord working, start `hark discord 2>&1`, described as
+   "Discord mentions and replies":
+   - `discord.mentioned`, `discord.replied`: tell me who wrote, in which
+     server, and what they ask for. Do not answer in Discord.
    If doctor shows datadog working, ask me which services or teams I own and
    start `hark datadog --filter '<that>' 2>&1`, described as "Datadog
    monitors": without a filter it reports every monitor in the organization.
@@ -134,7 +140,7 @@ Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark whi
    If I ask to watch only some repos, projects, channels, tasks or services,
    pass `--filter` with the provider's own syntax (see the hark README).
 5. Never reply, react, close, mute or change anything on GitHub, Jira, Linear,
-   Slack, Todoist or Datadog without asking me first.
+   Slack, Discord, Todoist or Datadog without asking me first.
 ```
 
 ## Options
@@ -145,7 +151,7 @@ Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark whi
 
 ### `--since`
 
-`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Linear, Slack, Todoist and Datadog already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Linear, Slack, Discord, Todoist and Datadog already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
 
 ### `--filter`
 
@@ -156,6 +162,7 @@ Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark whi
 | `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`, each negated with `-` (`-repo:acme/legacy`). Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme -is:ci'` |
 | `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'`, `--filter 'project != OPS'` |
 | `linear` | a Linear API `NotificationFilter` as JSON, where `type` is the notification type | `--filter '{"type":{"in":["issueMention","issueCommentMention"]}}'`, `--filter '{"type":{"nin":["issueNewComment"]}}'` |
+| `discord` | parameters of Discord's Search Guild Messages, as a query string, added to both searches in every server | `--filter 'author_type=-bot'`, `--filter 'channel_id=41771983423143938'` |
 | `slack` | Slack search modifiers, added to the mention and DM searches | `--filter 'in:#deploys'`, `--filter '-in:#random'` |
 | `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'`, `--filter '!#Personal'` |
 | `datadog` | Datadog event search, added to `source:alert` | `--filter 'service:checkout'`, `--filter 'team:payments -env:staging'` |
@@ -248,6 +255,26 @@ Every minute it runs two Slack searches, `<@you>` for mentions and `to:me` for D
 | `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
 
 Search sees a message once Slack indexes it, usually within a minute; one indexed more than 5 minutes late is missed. Slack can return only one of several matches that sit close together, and the search filters set in your Slack app apply. Threads you are in are reported only when they mention you. `hark doctor` shows how many mentions and DMs the search found in the last 7 days, so you can tell whether it sees your DMs.
+
+## Discord
+
+`hark discord` reads Discord through a bot of your own, because Discord does not allow automating a user account. The bot sees only the servers it was added to, and never your DMs. To set it up:
+
+1. At [discord.com/developers/applications](https://discord.com/developers/applications), create an application. On its Bot page, reset the token and copy it to `DISCORD_TOKEN`, and turn on Message Content Intent.
+2. On the OAuth2 page, in the URL Generator, pick the `bot` scope and the View Channels and Read Message History permissions. Open the generated URL and add the bot to each server you want to watch. Adding a bot needs the Manage Server permission there, so in a server you don't run, ask an admin.
+3. In Discord, turn on Settings, Advanced, Developer Mode, then right-click your name and Copy User ID into `DISCORD_USER_ID`.
+
+`hark doctor` shows the bot, whether Message Content Intent is on, whose mentions it watches, which servers it is in, and how many mentions search finds there in the last 7 days.
+
+Every minute, for each server, it runs Discord's message search twice: messages that mention you, and replies to your messages. Each server keeps its own cursor in `~/.local/state/hark/discord.json`, so a server that fails, like one where the bot lost access, does not hold back the others. The first run picks up the last hour. `--since` replaces every cursor.
+
+| Kind | When |
+|------|------|
+| `discord.mentioned` | someone else's message @mentions you; the text starts with the server name |
+| `discord.replied` | someone else replies to your message without mentioning you |
+| `error` | a request failed, for example a server that is still being indexed for search; hark keeps polling and prints the same error only once until another event arrives |
+
+Search finds a message once Discord indexes it. A message indexed more than 5 minutes after it was sent is missed. `@everyone`, `@here` and role mentions are not reported.
 
 ## Todoist
 

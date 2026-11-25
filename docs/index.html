@@ -6,20 +6,20 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0D0D0D">
 <title>hark: keep Claude Code in the loop on reviews, CI and alerts</title>
-<meta name="description" content="hark connects Claude Code to GitHub, Slack, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta name="description" content="hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
 <link rel="canonical" href="https://hark.dukex.sh/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="hark">
 <meta property="og:url" content="https://hark.dukex.sh/">
 <meta property="og:title" content="hark: keep your coding agent in the loop">
-<meta property="og:description" content="hark connects Claude Code to GitHub, Slack, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta property="og:description" content="hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
 <meta property="og:image" content="https://hark.dukex.sh/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="hark: keep your coding agent in the loop. A review arrives and the agent offers to make the change.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="hark: keep your coding agent in the loop">
-<meta name="twitter:description" content="hark connects Claude Code to GitHub, Slack, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta name="twitter:description" content="hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
 <meta name="twitter:image" content="https://hark.dukex.sh/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -32,7 +32,7 @@
   "@type": "SoftwareApplication",
   "name": "hark",
   "url": "https://hark.dukex.sh/",
-  "description": "hark connects Claude Code to GitHub, Slack, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.",
+  "description": "hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux, macOS",
   "image": "https://hark.dukex.sh/og.png",
@@ -793,7 +793,7 @@ p code, dd code, li code, summary code {
     <div class="container hero-grid">
       <div>
         <h1 id="title">Keep your coding agent in the loop</h1>
-        <p class="lead">hark connects Claude Code to GitHub, Slack, Jira, Linear, Datadog and Todoist. When a reviewer asks for changes, CI breaks, a teammate pings you or an alert fires, your agent hears about it, tells you what it means and offers to handle it.</p>
+        <p class="lead">hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist. When a reviewer asks for changes, CI breaks, a teammate pings you or an alert fires, your agent hears about it, tells you what it means and offers to handle it.</p>
         <div class="cta-row">
           <button class="btn btn-primary" type="button" data-copy="prompt">Copy the setup prompt</button>
           <a class="btn btn-primary nojs-only" href="#start">Get started</a>
@@ -825,6 +825,7 @@ p code, dd code, li code, summary code {
       <ul>
         <li>GitHub</li>
         <li>Slack</li>
+        <li>Discord</li>
         <li>Jira</li>
         <li>Linear</li>
         <li>Datadog</li>
@@ -938,6 +939,8 @@ p code, dd code, li code, summary code {
               <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
               <dt>Slack</dt>
               <dd><code>SLACK_TOKEN</code>, the user token of a Slack app you create with the <code>search:read</code> user scope</dd>
+              <dt>Discord</dt>
+              <dd><code>DISCORD_TOKEN</code>, the token of a bot you create with Message Content Intent and add to your servers, and <code>DISCORD_USER_ID</code>, your own user ID</dd>
               <dt>Jira</dt>
               <dd><code>JIRA_URL</code>, <code>JIRA_EMAIL</code> and <code>JIRA_API_TOKEN</code></dd>
               <dt>Linear</dt>
@@ -953,7 +956,7 @@ p code, dd code, li code, summary code {
           <section class="panel" role="tabpanel" id="step-2" aria-labelledby="tab-2">
             <h3>Paste the prompt into Claude Code</h3>
             <p>It tells the agent how to install and run hark, what to do with each kind of event, and to ask you before it replies, reacts, closes, mutes or changes anything.</p>
-            <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Setup prompt for Claude Code">Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark while we work.
+            <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Setup prompt for Claude Code">Watch my Datadog, Discord, GitHub, Jira, Linear, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://hark.dukex.sh/install | sh`.
@@ -996,8 +999,8 @@ p code, dd code, li code, summary code {
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
    `hark jira 2&gt;&amp;1`, described as "Jira activity on my issues". Jira, Linear,
-   Slack, Todoist and Datadog resume where they stopped on their own, so
-   re-arm them without `--since`:
+   Slack, Discord, Todoist and Datadog resume where they stopped on their own,
+   so re-arm them without `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
@@ -1017,6 +1020,10 @@ p code, dd code, li code, summary code {
    "Slack mentions and DMs":
    - `slack.mentioned`, `slack.dm`: tell me who wrote, where, and what they
      ask for. Do not answer in Slack.
+   If doctor shows discord working, start `hark discord 2&gt;&amp;1`, described as
+   "Discord mentions and replies":
+   - `discord.mentioned`, `discord.replied`: tell me who wrote, in which
+     server, and what they ask for. Do not answer in Discord.
    If doctor shows datadog working, ask me which services or teams I own and
    start `hark datadog --filter '&lt;that&gt;' 2&gt;&amp;1`, described as "Datadog
    monitors": without a filter it reports every monitor in the organization.
@@ -1026,7 +1033,7 @@ p code, dd code, li code, summary code {
    If I ask to watch only some repos, projects, channels, tasks or services,
    pass `--filter` with the provider's own syntax (see the hark README).
 5. Never reply, react, close, mute or change anything on GitHub, Jira, Linear,
-   Slack, Todoist or Datadog without asking me first.</pre>
+   Slack, Discord, Todoist or Datadog without asking me first.</pre>
             <div class="panel-actions">
               <button class="btn btn-primary" type="button" data-copy="prompt">Copy prompt</button>
               <button class="btn btn-secondary next" type="button" data-goto="2">Next: start listening</button>
@@ -1040,6 +1047,8 @@ p code, dd code, li code, summary code {
 hark 0.8.0
 datadog
   <span class="muted">- not configured: set DD_API_KEY, DD_APP_KEY</span>
+discord
+  <span class="muted">- not configured: set DISCORD_TOKEN and DISCORD_USER_ID</span>
 github
   <span class="ok">✓</span> token: logged in as you
   <span class="ok">✓</span> notifications: readable
@@ -1117,10 +1126,10 @@ todoist
 
         <ul class="fields">
           <li><button type="button" data-field="time" aria-pressed="false"><span class="fname">TIME</span><span class="fdesc">When it happened, in UTC. Pass it to <code>--since</code> to pick up where a stopped monitor left off.</span></button></li>
-          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">datadog, github, jira, linear, slack or todoist. You run one hark per provider.</span></button></li>
+          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">datadog, discord, github, jira, linear, slack or todoist. You run one hark per provider.</span></button></li>
           <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>slack.dm</code> or <code>task.due</code>.</span></button></li>
-          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira or Linear key, or the Slack <code>#channel</code>. Slack DMs, Todoist and Datadog lines have none.</span></button></li>
-          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login, Linear display name or Slack username of who did it. Jira puts the name inside the text.</span></button></li>
+          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira or Linear key, or the Slack <code>#channel</code>. Slack DMs, Discord, Todoist and Datadog lines have none.</span></button></li>
+          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login, Linear display name, or Slack or Discord username of who did it. Jira puts the name inside the text.</span></button></li>
           <li><button type="button" data-field="watching" aria-pressed="false"><span class="fname">watching</span><span class="fdesc">Someone else opened this thread and you follow it. Without it, the issue or PR is yours.</span></button></li>
           <li><button type="button" data-field="text" aria-pressed="false"><span class="fname">"TEXT"</span><span class="fdesc">The comment, review or title on one line, cut at 140 characters.</span></button></li>
           <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR, message, task or monitor.</span></button></li>
@@ -1140,6 +1149,7 @@ todoist
         <div class="seg" role="tablist" aria-label="Services">
           <button type="button" role="tab" id="ptab-github" aria-controls="p-github" aria-selected="true">GitHub</button>
           <button type="button" role="tab" id="ptab-slack" aria-controls="p-slack" aria-selected="false" tabindex="-1">Slack</button>
+          <button type="button" role="tab" id="ptab-discord" aria-controls="p-discord" aria-selected="false" tabindex="-1">Discord</button>
           <button type="button" role="tab" id="ptab-jira" aria-controls="p-jira" aria-selected="false" tabindex="-1">Jira</button>
           <button type="button" role="tab" id="ptab-linear" aria-controls="p-linear" aria-selected="false" tabindex="-1">Linear</button>
           <button type="button" role="tab" id="ptab-datadog" aria-controls="p-datadog" aria-selected="false" tabindex="-1">Datadog</button>
@@ -1185,6 +1195,26 @@ todoist
                 <div class="filter">
                   <span class="sub-label">Watch less, with Slack search modifiers</span>
                   <code class="cmd">--filter '-in:#random -in:#alerts'</code>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="provider" role="tabpanel" id="p-discord" aria-labelledby="ptab-discord">
+            <h3>Discord</h3>
+            <div class="provider-grid">
+              <dl class="kinds">
+                <div><dt><code>discord.mentioned</code></dt><dd>Someone @mentions you in a server the bot is in.</dd></div>
+                <div><dt><code>discord.replied</code></dt><dd>Someone replies to your message without mentioning you.</dd></div>
+              </dl>
+              <div class="provider-side">
+                <div>
+                  <span class="sub-label">Good to know</span>
+                  <p>Reads through a bot of your own, so it sees only the servers you add it to, and never your DMs. Each server continues from its own saved cursor.</p>
+                </div>
+                <div class="filter">
+                  <span class="sub-label">Watch less, with Discord search parameters</span>
+                  <code class="cmd">--filter 'author_type=-bot'</code>
                 </div>
               </div>
             </div>

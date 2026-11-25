@@ -22,6 +22,7 @@ import (
 	"github.com/dukex/hark/datadog"
 	"github.com/dukex/hark/github"
 	"github.com/dukex/hark/jira"
+	"github.com/dukex/hark/linear"
 	"github.com/dukex/hark/slack"
 	"github.com/dukex/hark/todoist"
 	"github.com/dukex/hark/update"
@@ -59,6 +60,7 @@ var providers = map[string]constructor{
 	"datadog": newDatadog,
 	"github":  newGitHub,
 	"jira":    newJira,
+	"linear":  newLinear,
 	"slack":   newSlack,
 	"todoist": newTodoist,
 }
@@ -138,6 +140,20 @@ func newDatadog(getenv func(string) string, o options) (hark.Provider, error) {
 		app = "https://app." + site
 	}
 	w := datadog.New(cmp.Or(getenv("HARK_DATADOG_API"), "https://api."+site), app, getenv("DD_API_KEY"), getenv("DD_APP_KEY"), state)
+	w.Since, w.Filter = o.Since, o.Filter
+	return w, nil
+}
+
+func newLinear(getenv func(string) string, o options) (hark.Provider, error) {
+	key := getenv("LINEAR_API_KEY")
+	if key == "" {
+		return nil, fmt.Errorf("%w: set LINEAR_API_KEY to a personal API key from Linear, Settings, Security & access", errNotConfigured)
+	}
+	state, err := hark.StatePath("linear")
+	if err != nil {
+		return nil, err
+	}
+	w := linear.New(cmp.Or(getenv("HARK_LINEAR_API"), "https://api.linear.app/graphql"), key, state)
 	w.Since, w.Filter = o.Since, o.Filter
 	return w, nil
 }

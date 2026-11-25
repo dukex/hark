@@ -918,7 +918,7 @@ p code, dd code, li code, summary code {
     <div class="container">
       <div class="section-head">
         <h2 id="start-title">Set up with one prompt</h2>
-        <p>Claude Code does the installing. You give it access to your accounts and paste the prompt. Any agent that can keep a command running in the background works too.</p>
+        <p>Claude Code does the installing. You give it access to your accounts and paste the prompt, which works in Copilot CLI too.</p>
       </div>
 
       <div class="section-body">
@@ -962,8 +962,12 @@ p code, dd code, li code, summary code {
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
    When it expires, start it again. If more than an hour passed since it
    stopped, add `--since &lt;time of its last line that is not an error&gt;`, so
-   nothing in between is lost. If your tool has no monitor, run it in the
-   background and read its output every few minutes.
+   nothing in between is lost. If your tool has no monitor but wakes you
+   when a background command exits (Copilot CLI does), add `--exit-on-event`
+   and run it as a detached background command instead: it exits after
+   printing new events, so handle them and start it again right away, with
+   `--since &lt;time of its last line that is not an error&gt;`. With neither, run
+   it in the background and read its output every few minutes.
 3. Each line is one event:
    `&lt;time&gt; github &lt;kind&gt; &lt;repo&gt;#&lt;number&gt; @&lt;actor&gt; [watching] "&lt;text&gt;" &lt;url&gt;`.
    - `issue.commented` / `pr.commented` without `watching`: someone commented on
@@ -1253,7 +1257,7 @@ todoist
       <div class="faq">
         <details>
           <summary>Which agents does hark work with?</summary>
-          <p>Claude Code runs hark as a background monitor and reacts to each line it prints. Any agent that can keep a command running and read its output can use hark the same way.</p>
+          <p>Claude Code runs hark as a background monitor and reacts to each line it prints. Copilot CLI has no monitor, but it wakes the agent when a background command exits, so the same prompt has it run hark with <code>--exit-on-event</code>, which exits after each batch of events, and start it again. Other agents can run hark in the background too, but they only see new events when they check.</p>
         </details>
         <details>
           <summary>How is this different from an MCP server?</summary>

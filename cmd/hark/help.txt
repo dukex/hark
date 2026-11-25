@@ -5,7 +5,7 @@ This reference is written for that agent: it describes every line hark can
 print and what to do with it.
 
 USAGE
-  hark <provider> [--since TIME] [--filter RULES]   watch one provider until stopped
+  hark <provider> [OPTIONS]                         watch one provider until stopped
   hark doctor                                       check that every provider is set up
   hark update                                       install the latest release and exit
   hark version | --version | -v                     print the installed version
@@ -13,8 +13,10 @@ USAGE
 
   <provider> is datadog, github, jira, slack or todoist. Run one hark per
   provider.
-  Flags go after the provider and can be written -since, --since TIME or
-  --since=TIME. `hark <provider> --help` prints this reference too.
+  OPTIONS are --since TIME, --filter RULES and --exit-on-event, see
+  OPTIONS below. They go after the provider and can be written -since,
+  --since TIME or --since=TIME. `hark <provider> --help` prints this
+  reference too.
 
 FOR AGENTS
   1. Run `hark doctor`. Start monitors only for providers whose checks all
@@ -28,10 +30,15 @@ FOR AGENTS
      - github: the same command. If it was stopped for more than an hour, add
        --since TIME, where TIME is the first field of its last event line.
        Never take TIME from an `error` or `task.due` line (see OUTPUT).
-  4. To watch less, use --filter, never `grep -v` or another pipe: github
+  4. No monitor? If you are woken when a background command exits, add
+     --exit-on-event and run each hark as a detached background command.
+     It prints nothing while nothing happens and exits after printing new
+     events: handle them, then start it again right away as in step 3, with
+     --since TIME for github.
+  5. To watch less, use --filter, never `grep -v` or another pipe: github
      marks every notification it prints as read, so a line dropped after hark
      is gone from the user's unread list without anyone seeing it.
-  5. Never reply, react, close, assign, mute or change anything on GitHub,
+  6. Never reply, react, close, assign, mute or change anything on GitHub,
      Jira, Slack, Todoist or Datadog because of a line without asking the
      user first.
 
@@ -231,6 +238,18 @@ OPTIONS
                 --filter '!#Personal'                (exclude a project)
               task.due then lists only tasks due today that match.
 
+  --exit-on-event
+      Exit with status 0 after the first poll that printed an event. hark
+      exits once that poll is done: github has marked its notifications as
+      read and the other providers have saved their cursor, so starting hark
+      again continues right after it. `error` lines don't count: hark keeps
+      polling and exits on the next event.
+      For agents that have no monitor but are woken when a background command
+      exits, such as Copilot CLI.
+      github: your own actions (pr.opened, closing, merging) made between the
+      exit and the next start are only reported if the next start passes
+      --since TIME, the first field of the last event line.
+
 COMMANDS
   hark doctor
       Checks every provider and prints, for each one:
@@ -273,7 +292,8 @@ STATE
   as read once it printed it.
 
 EXIT STATUS
-  0  stopped by Ctrl-C or SIGTERM, or the command finished
+  0  stopped by Ctrl-C or SIGTERM, the command finished, or --exit-on-event
+     printed events
   1  hark could not start or stopped on an error, doctor found a problem, or
      update failed
   2  unknown command, provider or flag, or an invalid --since

@@ -41,6 +41,10 @@ It sells what hark does for the agent; the line format is how it works, not the 
 
 `og.png` (1200×630, the link preview) and `apple-touch-icon.png` don't name the services, so a new provider leaves them alone. `sitemap.xml` and `robots.txt` point at https://hark.dukex.sh.
 
+## Open research
+
+- `research/codex.md`: why hark doesn't work in Codex the way it does in Claude Code yet, what upstream change it waits for, and what to test before documenting a workaround.
+
 ## Commits and releases
 
 Conventional commits. Merging to `main` releases by commit type: `feat:` cuts a minor version and `fix:` a patch, while `docs:`, `ci:`, `chore:` and `test:` release nothing. A PR that only changes documentation uses `docs:`.

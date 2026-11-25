@@ -54,7 +54,7 @@ func fakeRelease(t *testing.T, checksum func(sum [32]byte) [32]byte) string {
 func install(t *testing.T, url string) (string, []byte, error) {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "bin")
-	cmd := exec.Command("sh", "install.sh")
+	cmd := exec.Command("sh", "docs/install")
 	cmd.Env = append(os.Environ(), "HARK_DOWNLOAD_URL="+url, "HARK_INSTALL_DIR="+dir)
 	out, err := cmd.CombinedOutput()
 	return filepath.Join(dir, "hark"), out, err
@@ -63,7 +63,7 @@ func install(t *testing.T, url string) (string, []byte, error) {
 func TestInstallScriptInstallsReleaseBinary(t *testing.T) {
 	bin, out, err := install(t, fakeRelease(t, func(s [32]byte) [32]byte { return s }))
 	if err != nil {
-		t.Fatalf("install.sh failed: %v\n%s", err, out)
+		t.Fatalf("docs/install failed: %v\n%s", err, out)
 	}
 	got, err := exec.Command(bin).Output()
 	if err != nil || string(got) != "fake-hark\n" {
@@ -74,7 +74,7 @@ func TestInstallScriptInstallsReleaseBinary(t *testing.T) {
 func TestInstallScriptRejectsBadChecksum(t *testing.T) {
 	bin, out, err := install(t, fakeRelease(t, func([32]byte) [32]byte { return [32]byte{1} }))
 	if err == nil {
-		t.Fatalf("install.sh accepted a bad checksum:\n%s", out)
+		t.Fatalf("docs/install accepted a bad checksum:\n%s", out)
 	}
 	if _, statErr := os.Stat(bin); !os.IsNotExist(statErr) {
 		t.Fatalf("binary installed despite bad checksum")

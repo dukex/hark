@@ -25,4 +25,4 @@ jobs:
           echo "$total"
           case "$total" in *100.0%) ;; *) exit 1 ;; esac
       - uses: golangci/golangci-lint-action@v9
-      - run: shellcheck install.sh
+      - run: shellcheck docs/install

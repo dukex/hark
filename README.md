@@ -14,7 +14,7 @@ $ hark github
 ## Install
 
 ```
-curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh
+curl -fsSL https://hark.dukex.sh/install | sh
 ```
 
 It downloads the latest release for your OS and architecture (Linux or macOS, amd64 or arm64), checks it against `checksums.txt` and installs it to `~/.local/bin`. Set `HARK_INSTALL_DIR` to install elsewhere, or `HARK_DOWNLOAD_URL=https://github.com/dukex/hark/releases/download/v0.1.0` to pin a version.
@@ -62,7 +62,7 @@ Paste this prompt into the session:
 Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
-   `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
+   `curl -fsSL https://hark.dukex.sh/install | sh`.
    Then run `hark help` and read it: it describes every line hark prints,
    every flag and how to restart a monitor without losing events.
 2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start

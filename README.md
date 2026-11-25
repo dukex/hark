@@ -50,7 +50,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 Paste this prompt into the session:
 
 ```text
-Watch my GitHub, Jira and Todoist activity with hark while we work.
+Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -88,8 +88,8 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
      what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
-   `hark jira 2>&1`, described as "Jira activity on my issues". Jira and
-   Todoist resume where they stopped on their own, so re-arm them without
+   `hark jira 2>&1`, described as "Jira activity on my issues". Jira, Slack
+   and Todoist resume where they stopped on their own, so re-arm them without
    `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
@@ -100,10 +100,14 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
    - `task.commented`: tell me what the comment says.
    - `task.created`, `task.completed`, `task.rescheduled`: stay quiet unless
      the task is about the work in this session.
-   If I ask to watch only some repos, projects or tasks, pass `--filter` with
-   the provider's own syntax (see the hark README).
-5. Never reply, close or change anything on GitHub, Jira or Todoist without
-   asking me first.
+   If doctor shows slack working, start `hark slack 2>&1`, described as
+   "Slack mentions and DMs":
+   - `slack.mentioned`, `slack.dm`: tell me who wrote, where, and what they
+     ask for. Do not answer in Slack.
+   If I ask to watch only some repos, projects, channels or tasks, pass
+   `--filter` with the provider's own syntax (see the hark README).
+5. Never reply, react, close or change anything on GitHub, Jira, Slack or
+   Todoist without asking me first.
 ```
 
 ## Options
@@ -114,7 +118,7 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 
 ### `--since`
 
-`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira and Todoist already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Slack and Todoist already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
 
 ### `--filter`
 
@@ -124,6 +128,7 @@ Watch my GitHub, Jira and Todoist activity with hark while we work.
 |----------|-------|---------|
 | `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`, each negated with `-` (`-repo:acme/legacy`). Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme -is:ci'` |
 | `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'`, `--filter 'project != OPS'` |
+| `slack` | Slack search modifiers, added to the mention and DM searches | `--filter 'in:#deploys'`, `--filter '-in:#random'` |
 | `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'`, `--filter '!#Personal'` |
 
 Exclude with `--filter`, not with `grep -v` after hark: GitHub notifications hark prints are marked as read, so a line dropped by a pipe disappears from your unread list unseen.
@@ -173,6 +178,24 @@ Like Todoist, it keeps its cursor in `~/.local/state/hark/jira.json` and the fir
 | `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
 
 Mentions on issues you don't follow are not reported.
+
+## Slack
+
+`hark slack` needs `SLACK_TOKEN`, a user token (`xoxp-`) with the `search:read` scope:
+
+1. At [api.slack.com/apps](https://api.slack.com/apps), Create New App, From scratch, in your workspace.
+2. In OAuth & Permissions, under User Token Scopes (not Bot Token Scopes), add `search:read`.
+3. Install to Workspace (some workspaces need an admin to approve it) and copy the User OAuth Token.
+
+Every minute it runs two Slack searches, `<@you>` for mentions and `to:me` for DMs, and reports what others wrote. Your own messages are skipped. It keeps its cursor in `~/.local/state/hark/slack.json`, the first run picks up the last hour, and `--since` replaces the saved cursor.
+
+| Kind | When |
+|------|------|
+| `slack.mentioned` | someone @mentions you, in a channel or a DM |
+| `slack.dm` | someone writes to you in a DM or group DM |
+| `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
+
+Search sees a message once Slack indexes it, usually within a minute; one indexed more than 5 minutes late is missed. Slack can return only one of several matches that sit close together, and the search filters set in your Slack app apply. Threads you are in are reported only when they mention you. `hark doctor` shows how many mentions and DMs the search found in the last 7 days, so you can tell whether it sees your DMs.
 
 ## Todoist
 

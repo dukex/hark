@@ -1,5 +1,6 @@
-hark streams one line per event from your GitHub, Jira and Todoist accounts,
-so an agent can run it as a background monitor and react to what happens.
+hark streams one line per event from your GitHub, Jira, Slack and Todoist
+accounts, so an agent can run it as a background monitor and react to what
+happens.
 This reference is written for that agent: it describes every line hark can
 print and what to do with it.
 
@@ -10,7 +11,7 @@ USAGE
   hark version | --version | -v                     print the installed version
   hark help | --help | -h | hark                    print this reference
 
-  <provider> is github, jira or todoist. Run one hark per provider.
+  <provider> is github, jira, slack or todoist. Run one hark per provider.
   Flags go after the provider and can be written -since, --since TIME or
   --since=TIME. `hark <provider> --help` prints this reference too.
 
@@ -21,16 +22,16 @@ FOR AGENTS
   2. Start `hark <provider> 2>&1` as a background monitor, one per provider,
      and read its output line by line. Each event is exactly one line.
   3. When a monitor ends or times out, start it again:
-     - jira, todoist: the same command, without --since. They resume from a
-       saved cursor and never repeat or skip an event.
+     - jira, slack, todoist: the same command, without --since. They
+       resume from a saved cursor and do not repeat events.
      - github: the same command. If it was stopped for more than an hour, add
        --since TIME, where TIME is the first field of its last event line.
        Never take TIME from an `error` or `task.due` line (see OUTPUT).
   4. To watch less, use --filter, never `grep -v` or another pipe: github
      marks every notification it prints as read, so a line dropped after hark
      is gone from the user's unread list without anyone seeing it.
-  5. Never reply, close, assign or change anything on GitHub, Jira or Todoist
-     because of a line without asking the user first.
+  5. Never reply, react, close, assign or change anything on GitHub, Jira,
+     Slack or Todoist because of a line without asking the user first.
 
 OUTPUT
   stdout has one event per line, oldest first within each poll:
@@ -42,12 +43,13 @@ OUTPUT
 
   TIME      when it happened, in UTC, RFC 3339: 2026-11-23T10:05:00Z.
             For `error` and `task.due` it is when hark printed the line.
-  PROVIDER  github, jira or todoist.
+  PROVIDER  github, jira, slack or todoist.
   KIND      what happened, see KINDS.
   REF       github: owner/repo#number, or owner/repo for ci.* kinds.
-            jira: the issue key, like PROJ-7. todoist: never present.
-  @ACTOR    github only: the login of who did it. Jira puts the person's
-            name inside TEXT.
+            jira: the issue key, like PROJ-7. slack: #channel, left out for
+            DMs. todoist: never present.
+  @ACTOR    github and slack: the login or username of who did it. Jira
+            puts the person's name inside TEXT.
   watching  github only: the issue or PR was opened by someone else; you get
             it because you watch it, were mentioned or were asked to review.
             Without `watching` it is yours.
@@ -62,6 +64,7 @@ OUTPUT
     2026-11-23T10:10:00Z github pr.commented acme/lib#40 @frank watching "rebase?" https://github.com/acme/lib/pull/40#issuecomment-70
     2026-11-23T10:12:00Z github ci.failed acme/api "CI workflow run failed for main branch"
     2026-11-23T10:15:00Z jira jira.transitioned PROJ-7 "Checkout: To Do to Done (Ana)" https://example.atlassian.net/browse/PROJ-7
+    2026-11-23T10:17:00Z slack slack.mentioned #deploys @ana "<@U012AB> can you look?" https://example.slack.com/archives/C01/p1732356300000100
     2026-11-23T10:20:00Z todoist task.completed "Pay the power bill" https://app.todoist.com/app/task/6X7rM8
     2026-11-23T10:21:00Z github error "GET /notifications: 502 Bad Gateway"
 
@@ -110,6 +113,23 @@ KINDS
     jira.assigned
         someone else assigned the issue to you. TEXT is
         "<summary> (assigned by <name>)".
+  slack
+    slack.mentioned
+        someone else's message @mentions you, in a channel or a DM. TEXT is
+        the message in Slack markup: <@U…> is a user, <#C…> a channel,
+        <https://…|label> a link.
+    slack.dm
+        someone else wrote to you in a DM or group DM, without mentioning
+        you.
+        Found with Slack search, so a message shows up once Slack indexes it,
+        usually within a minute. One indexed more than 5 minutes late is
+        missed. When several matches sit close together in one conversation
+        Slack can return only one of them, and the search filters the user
+        set in the Slack app apply. Threads you are in are not reported
+        unless they mention you.
+        `hark doctor` prints how many mentions and DMs the search found in
+        the last 7 days. 0 DMs when the user surely had some means the search
+        does not see them: tell the user.
   todoist
     task.created, task.completed
         a task was added or completed, by you or a collaborator. TEXT is the
@@ -129,7 +149,8 @@ KINDS
 
   Your own actions: github reports the ones you make (pr.opened, closing,
   merging) from your public activity, which GitHub can delay by up to a few
-  hours. jira never reports them. todoist reports everyone's, including yours.
+  hours. jira and slack never report them. todoist reports everyone's,
+  including yours.
 
 OPTIONS
   --since TIME
@@ -138,9 +159,9 @@ OPTIONS
       2026-11-23T07:05:00-03:00) or a date (2026-11-23, midnight in your time
       zone). Anything else exits 2.
       Default start: github, unread notifications from one hour before hark
-      started. jira and todoist, their saved cursor, or one hour back on the
-      first run. --since replaces the saved cursor, and the new position is
-      saved as hark runs.
+      started. jira, slack and todoist, their saved cursor, or one hour
+      back on the first run. --since replaces the saved cursor, and the new
+      position is saved as hark runs.
       github only sees notifications that are still unread: what hark or the
       user already marked as read never comes back, whatever TIME says.
 
@@ -172,6 +193,13 @@ OPTIONS
                 --filter 'project = PROJ'
                 --filter 'project = PROJ AND priority in (High, Highest)'
                 --filter 'project != OPS'            (exclude a project)
+      slack   Slack search modifiers, added to both searches (mentions and
+              DMs):
+                --filter 'in:#deploys'
+                --filter '-in:#random -in:#alerts'   (exclude channels)
+                --filter 'from:@ana'
+              Slack accepts any search, so only a missing scope stops hark on
+              start. A filter that matches nothing is not an error.
       todoist a Todoist filter, as typed in the app:
                 --filter '#Work'
                 --filter '#Work & p1'
@@ -199,16 +227,20 @@ ENVIRONMENT
   JIRA_URL            your Jira Cloud site, like https://example.atlassian.net.
   JIRA_EMAIL          the e-mail of your Atlassian account.
   JIRA_API_TOKEN      a token from id.atlassian.com, Security, API tokens.
+  SLACK_TOKEN         the user token (xoxp-) of a Slack app you create with
+                      the search:read user scope, api.slack.com/apps.
+  HARK_SLACK_API      Slack API URL. Default https://slack.com/api.
   TODOIST_API_TOKEN   a token from Todoist settings, Integrations, Developer.
   HARK_TODOIST_API    Todoist API URL. Default https://api.todoist.com/api/v1.
   HARK_NO_UPDATE      set to anything to skip the update check on start.
   XDG_STATE_HOME      where state lives, default ~/.local/state.
 
 STATE
-  jira and todoist save their cursor in $XDG_STATE_HOME/hark/<provider>.json
-  (~/.local/state/hark/<provider>.json). Delete the file to start over from
-  one hour back. github keeps no file: GitHub's read/unread state is its
-  cursor, and hark marks each notification as read once it printed it.
+  jira, slack and todoist save their cursor in
+  $XDG_STATE_HOME/hark/<provider>.json (~/.local/state/hark/<provider>.json).
+  Delete the file to start over from one hour back. github keeps no file:
+  GitHub's read/unread state is its cursor, and hark marks each notification
+  as read once it printed it.
 
 EXIT STATUS
   0  stopped by Ctrl-C or SIGTERM, or the command finished

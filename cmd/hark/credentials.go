@@ -111,6 +111,7 @@ func keychainGet(getenv func(string) string, name string) string {
 	if cmd == nil {
 		return ""
 	}
+	cmd.WaitDelay = keychainTimeout
 	out, err := cmd.Output()
 	if err != nil {
 		return ""

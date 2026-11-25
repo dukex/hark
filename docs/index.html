@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0D0D0D">
+<title>hark</title>
+<meta name="description" content="hark watches your GitHub, Jira and Todoist accounts and prints one line per event, so Claude Code can run it as a monitor and tell you what changed while you work.">
+<meta property="og:title" content="hark">
+<meta property="og:description" content="Your GitHub, Jira and Todoist activity, one line per event, for Claude Code monitors.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dukex.github.io/hark/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F2C94C'/%3E%3Ctext x='16' y='23' font-family='Inter,Arial,sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='%23000'%3Eh%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --primary: #F2C94C;
+  --primary-hover: #F2C029;
+  --primary-active: #D9A400;
+  --bg: #0D0D0D;
+  --surface: #1A1A1A;
+  --elevated: #262626;
+  --text: #FFFFFF;
+  --text-2: #9E9E9E;
+  --inverse: #000000;
+  --border: #333333;
+  --focus: #F2C94C;
+  --success: #4CAF50;
+  --warning: #FF9800;
+  --error: #F44336;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-base: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-xxl: 32px;
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 9999px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p, dl, dd, ol, ul, pre { margin: 0; }
+
+ul, ol { padding: 0; list-style: none; }
+
+h1, h2, h3 { line-height: 1.2; font-weight: 700; }
+
+h1 { font-size: var(--fs-xxl); letter-spacing: -0.02em; max-width: 22ch; }
+
+h2 { font-size: var(--fs-xl); letter-spacing: -0.01em; }
+
+h3 { font-size: var(--fs-lg); }
+
+code, pre, kbd { font-family: var(--mono); font-size: 0.875em; }
+
+p code, dd code, li code, dt code {
+  background: var(--elevated);
+  border-radius: var(--r-sm);
+  padding: 1px var(--sp-xs);
+}
+
+a { color: var(--text); text-underline-offset: 3px; text-decoration-color: var(--text-2); }
+
+a:hover { color: var(--primary); text-decoration-color: var(--primary); }
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-inline: var(--sp-md);
+}
+
+.lead {
+  color: var(--text-2);
+  font-size: var(--fs-lg);
+  max-width: 62ch;
+}
+
+.muted { color: var(--text-2); }
+
+.small { font-size: var(--fs-sm); }
+
+.label {
+  display: block;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  margin-bottom: var(--sp-xs);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  min-height: 48px;
+  padding: 0 var(--sp-lg);
+  border-radius: var(--r-lg);
+  border: 1px solid transparent;
+  font: 500 var(--fs-base)/1 var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-primary { background: var(--primary); color: var(--inverse); }
+
+.btn-primary:hover { background: var(--primary-hover); color: var(--inverse); }
+
+.btn-primary:active { background: var(--primary-active); }
+
+.btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+
+.btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
+
+.btn-small { min-height: 40px; padding: 0 var(--sp-md); font-size: var(--fs-sm); }
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-lg);
+  padding-top: var(--sp-md);
+  padding-bottom: var(--sp-md);
+}
+
+.brand {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.brand:hover { color: var(--text); }
+
+.top nav { display: flex; gap: var(--sp-lg); margin-left: auto; }
+
+.top nav a { color: var(--text-2); text-decoration: none; font-size: var(--fs-sm); font-weight: 500; }
+
+.top nav a:hover { color: var(--text); }
+
+.hero { padding-top: var(--sp-xxl); padding-bottom: var(--sp-xxl); }
+
+.hero .lead { margin-top: var(--sp-md); }
+
+.install { margin-top: var(--sp-xl); max-width: 820px; }
+
+.field-row { display: flex; gap: var(--sp-sm); }
+
+.cmd {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 var(--sp-md);
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+.cmd::before { content: "$"; color: var(--text-2); margin-right: var(--sp-sm); }
+
+.surface .cmd { background: var(--elevated); }
+
+.install .alt { margin-top: var(--sp-sm); }
+
+.surface {
+  background: var(--surface);
+  border-radius: var(--r-md);
+}
+
+.stream { margin-top: var(--sp-xxl); }
+
+.stream-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  flex-wrap: wrap;
+  padding: var(--sp-sm) var(--sp-md);
+  border-bottom: 1px solid var(--border);
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  background: var(--elevated);
+  border-radius: var(--r-sm);
+  padding: 2px var(--sp-sm);
+}
+
+.live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--success);
+}
+
+.live::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--success);
+}
+
+.events {
+  padding: var(--sp-md);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.events li {
+  padding-left: 2ch;
+  text-indent: -2ch;
+  overflow-wrap: anywhere;
+}
+
+.events li + li { margin-top: var(--sp-xs); }
+
+.js .events li { transition: opacity 180ms ease-out; }
+
+.js .events li.pending { opacity: 0; }
+
+.ev-t, .ev-p, .ev-u, .ev-w { color: var(--text-2); }
+
+.ev-k { font-weight: 500; }
+
+.ev-k.ok { color: var(--success); }
+
+.ev-k.warn { color: var(--warning); }
+
+.ev-k.bad { color: var(--error); }
+
+.stream-note { margin-top: var(--sp-md); }
+
+.section {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-xxl);
+  padding-bottom: var(--sp-xxl);
+}
+
+.intro { margin-top: var(--sp-sm); max-width: 62ch; color: var(--text-2); }
+
+.anatomy-card { margin-top: var(--sp-lg); padding: var(--sp-lg); }
+
+.anatomy {
+  font-family: var(--mono);
+  font-size: var(--fs-base);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.anatomy span {
+  color: var(--text-2);
+  text-decoration: underline 2px transparent;
+  text-underline-offset: 6px;
+  transition: color 120ms, text-decoration-color 120ms;
+}
+
+.anatomy span.on { color: var(--primary); text-decoration-color: var(--primary); }
+
+.fields {
+  margin-top: var(--sp-lg);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-sm);
+}
+
+.fields button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--elevated);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  cursor: pointer;
+}
+
+.fields button:hover { border-color: var(--border); }
+
+.fields button[aria-pressed="true"] { border-color: var(--primary); }
+
+.fields .fname {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.fields button[aria-pressed="true"] .fname { color: var(--primary); }
+
+.fields .fdesc { display: block; margin-top: var(--sp-xs); color: var(--text-2); font-size: var(--fs-sm); }
+
+.fields code { background: var(--surface); }
+
+.stepper {
+  margin-top: var(--sp-xl);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 720px;
+}
+
+.no-js .stepper { display: none; }
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 0 var(--sp-xs);
+  background: none;
+  border: 0;
+  border-radius: var(--r-md);
+  font: 500 var(--fs-sm)/1.3 var(--sans);
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+}
+
+.step + .step::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: calc(50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  background: var(--border);
+}
+
+.step.reached::before { background: var(--primary); }
+
+.dot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-full);
+  border: 2px solid var(--border);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.step[aria-selected="true"] { color: var(--text); }
+
+.step[aria-selected="true"] .dot { border-color: var(--primary); color: var(--primary); }
+
+.step.done .dot { background: var(--primary); border-color: var(--primary); color: var(--inverse); }
+
+.step.done .num { display: none; }
+
+.step .check { display: none; width: 14px; height: 14px; }
+
+.step.done .check { display: block; }
+
+.panels { margin-top: var(--sp-lg); }
+
+.panel { padding: var(--sp-lg); }
+
+.no-js .panel + .panel { margin-top: var(--sp-md); }
+
+.panel > * + * { margin-top: var(--sp-md); }
+
+.panel p { max-width: 64ch; color: var(--text-2); }
+
+.panel-actions { display: flex; gap: var(--sp-sm); flex-wrap: wrap; }
+
+.no-js .panel-actions .next { display: none; }
+
+.env { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-sm) var(--sp-lg); font-size: var(--fs-sm); }
+
+.env dt { font-weight: 500; }
+
+.env dd { color: var(--text-2); }
+
+.code {
+  background: var(--elevated);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  overflow: auto;
+  white-space: pre;
+}
+
+.prompt { max-height: 360px; white-space: pre-wrap; }
+
+.ok { color: var(--success); }
+
+.bad { color: var(--error); }
+
+.providers {
+  margin-top: var(--sp-xl);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-md);
+}
+
+.provider { padding: var(--sp-lg); display: flex; flex-direction: column; gap: var(--sp-lg); }
+
+.provider h3 { font-size: var(--fs-xl); }
+
+.kinds { display: grid; gap: var(--sp-md); font-size: var(--fs-sm); }
+
+.kinds dt { display: flex; flex-wrap: wrap; gap: var(--sp-xs) var(--sp-sm); }
+
+.kinds dt code { background: none; padding: 0; font-size: var(--fs-sm); font-weight: 500; }
+
+.kinds dd { color: var(--text-2); margin-top: 2px; }
+
+.provider p { font-size: var(--fs-sm); color: var(--text-2); }
+
+.provider .cmd {
+  min-height: 40px;
+  padding-top: var(--sp-sm);
+  padding-bottom: var(--sp-sm);
+  font-size: var(--fs-xs);
+  border-radius: var(--r-md);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.provider .filter { margin-top: auto; }
+
+.provider .cmd::before { content: none; }
+
+.providers-note { margin-top: var(--sp-lg); }
+
+.notes {
+  margin-top: var(--sp-xl);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-xl);
+}
+
+.notes p { margin-top: var(--sp-sm); color: var(--text-2); }
+
+.foot {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-xl);
+  padding-bottom: var(--sp-xxl);
+}
+
+.foot .wrap { display: flex; gap: var(--sp-lg); justify-content: space-between; flex-wrap: wrap; align-items: baseline; }
+
+.foot ul { display: flex; gap: var(--sp-lg); flex-wrap: wrap; font-size: var(--fs-sm); }
+
+@media (min-width: 720px) {
+  .wrap { padding-inline: var(--sp-xl); }
+  .hero { padding-top: calc(var(--sp-xxl) * 2); }
+}
+
+@media (max-width: 899px) {
+  .providers, .notes { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 639px) {
+  .top nav { display: none; }
+  .top .btn { margin-left: auto; }
+  .fields { grid-template-columns: minmax(0, 1fr); }
+  .field-row { flex-direction: column; }
+  .anatomy-card, .panel, .provider { padding: var(--sp-md); }
+  .anatomy { font-size: var(--fs-sm); }
+  .env { grid-template-columns: minmax(0, 1fr); gap: var(--sp-xs); }
+  .env dd + dt { margin-top: var(--sp-sm); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .events li, .anatomy span { transition: none; }
+}
+</style>
+</head>
+<body class="no-js">
+<script>document.body.classList.replace("no-js", "js");</script>
+
+<header class="wrap top">
+  <a class="brand" href="./">hark</a>
+  <nav aria-label="Sections">
+    <a href="#line">Read a line</a>
+    <a href="#setup">Set up</a>
+    <a href="#providers">Providers</a>
+  </nav>
+  <a class="btn btn-secondary btn-small" href="https://github.com/dukex/hark">GitHub</a>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="title">
+    <div class="wrap">
+      <h1 id="title">Your GitHub, Jira and Todoist activity, one line per event</h1>
+      <p class="lead">hark watches your accounts and prints every comment, review, merge, failed build and due task as a single line. Run it as a Claude Code monitor and your agent tells you what changed while you keep working.</p>
+
+      <div class="install">
+        <span class="label">Install on Linux or macOS</span>
+        <div class="field-row">
+          <code class="cmd" id="install-cmd" tabindex="0">curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh</code>
+          <button class="btn btn-primary" type="button" data-copy="install-cmd">Copy</button>
+        </div>
+        <p class="alt muted small">Or with Go: <code>go install github.com/dukex/hark/cmd/hark@latest</code></p>
+      </div>
+
+      <div class="stream surface" role="figure" aria-label="Example output from three hark monitors">
+        <div class="stream-head">
+          <span class="tag">hark github</span>
+          <span class="tag">hark jira</span>
+          <span class="tag">hark todoist</span>
+          <span class="live">Live</span>
+        </div>
+        <ol class="events">
+          <li><span class="ev-t">2026-11-23T10:05:00Z</span> <span class="ev-p">github</span> <span class="ev-k">issue.commented</span> dukex/foo#3 @alice "works here" <span class="ev-u">https://github.com/dukex/foo/issues/3#issuecomment-9</span></li>
+          <li><span class="ev-t">2026-11-23T10:08:00Z</span> <span class="ev-p">github</span> <span class="ev-k ok">pr.merged</span> dukex/foo#12 @bob <span class="ev-u">https://github.com/dukex/foo/pull/12</span></li>
+          <li><span class="ev-t">2026-11-23T10:10:00Z</span> <span class="ev-p">github</span> <span class="ev-k">pr.commented</span> acme/lib#40 @frank <span class="ev-w">watching</span> "rebase?" <span class="ev-u">https://github.com/acme/lib/pull/40#issuecomment-70</span></li>
+          <li><span class="ev-t">2026-11-23T10:12:00Z</span> <span class="ev-p">github</span> <span class="ev-k bad">ci.failed</span> acme/api "CI workflow run failed for main branch"</li>
+          <li><span class="ev-t">2026-11-23T10:14:00Z</span> <span class="ev-p">github</span> <span class="ev-k warn">pr.changes_requested</span> dukex/foo#15 @carol "move the migration to its own PR (2 inline comments)" <span class="ev-u">https://github.com/dukex/foo/pull/15#pullrequestreview-31</span></li>
+          <li><span class="ev-t">2026-11-23T10:15:00Z</span> <span class="ev-p">jira</span> <span class="ev-k">jira.transitioned</span> PROJ-7 "Checkout: To Do to Done (Ana)" <span class="ev-u">https://example.atlassian.net/browse/PROJ-7</span></li>
+          <li><span class="ev-t">2026-11-23T10:18:00Z</span> <span class="ev-p">jira</span> <span class="ev-k warn">jira.mentioned</span> PROJ-9 "Ana: can you check the refund copy before Friday?" <span class="ev-u">https://example.atlassian.net/browse/PROJ-9</span></li>
+          <li><span class="ev-t">2026-11-23T10:20:00Z</span> <span class="ev-p">todoist</span> <span class="ev-k ok">task.completed</span> "Pay the power bill" <span class="ev-u">https://app.todoist.com/app/task/6X7rM8</span></li>
+        </ol>
+      </div>
+      <p class="stream-note muted small">Silence means no news: hark checks every minute and prints nothing while nothing happens.</p>
+    </div>
+  </section>
+
+  <section class="section" id="line" aria-labelledby="line-title">
+    <div class="wrap">
+      <h2 id="line-title">One event, one line</h2>
+      <p class="intro">Fields are separated by one space and empty ones are left out. Select a field to find it in the line.</p>
+
+      <div class="anatomy-card surface">
+        <p class="anatomy"><span data-f="time">2026-11-23T10:10:00Z</span> <span data-f="provider">github</span> <span data-f="kind" class="on">pr.commented</span> <span data-f="ref">acme/lib#40</span> <span data-f="actor">@frank</span> <span data-f="watching">watching</span> <span data-f="text">"rebase?"</span> <span data-f="url">https://github.com/acme/lib/pull/40#issuecomment-70</span></p>
+
+        <ul class="fields">
+          <li><button type="button" data-field="time" aria-pressed="false"><span class="fname">TIME</span><span class="fdesc">When it happened, in UTC. Pass it to <code>--since</code> to pick up where a stopped monitor left off.</span></button></li>
+          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">github, jira or todoist. You run one hark per provider.</span></button></li>
+          <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>jira.mentioned</code> or <code>task.due</code>.</span></button></li>
+          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR, as <code>owner/repo#number</code>, or the Jira key. Todoist lines have none.</span></button></li>
+          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login of who did it. Jira puts the name inside the text.</span></button></li>
+          <li><button type="button" data-field="watching" aria-pressed="false"><span class="fname">watching</span><span class="fdesc">Someone else opened this thread and you follow it. Without it, the issue or PR is yours.</span></button></li>
+          <li><button type="button" data-field="text" aria-pressed="false"><span class="fname">"TEXT"</span><span class="fdesc">The comment, review or title on one line, cut at 140 characters.</span></button></li>
+          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR or task.</span></button></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="setup" aria-labelledby="setup-title">
+    <div class="wrap">
+      <h2 id="setup-title">Hand it to your agent</h2>
+      <p class="intro">Three steps in a Claude Code session. Any agent that can keep a command running in the background works too.</p>
+
+      <div class="stepper" role="tablist" aria-label="Setup steps">
+        <button class="step" type="button" role="tab" id="tab-1" aria-controls="step-1" aria-selected="true"><span class="dot" aria-hidden="true"><span class="num">1</span><svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Install</button>
+        <button class="step" type="button" role="tab" id="tab-2" aria-controls="step-2" aria-selected="false" tabindex="-1"><span class="dot" aria-hidden="true"><span class="num">2</span><svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Check your accounts</button>
+        <button class="step" type="button" role="tab" id="tab-3" aria-controls="step-3" aria-selected="false" tabindex="-1"><span class="dot" aria-hidden="true"><span class="num">3</span><svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Start the monitors</button>
+      </div>
+
+      <div class="panels">
+        <section class="panel surface" role="tabpanel" id="step-1" aria-labelledby="tab-1">
+          <h3>Install hark</h3>
+          <div class="field-row">
+            <code class="cmd" id="install-cmd-2" tabindex="0">curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh</code>
+            <button class="btn btn-primary" type="button" data-copy="install-cmd-2">Copy</button>
+          </div>
+          <p>The script downloads the latest release for your OS and architecture, checks it against <code>checksums.txt</code> and installs it to <code>~/.local/bin</code>. From then on, hark updates itself every time it starts.</p>
+          <div class="panel-actions"><button class="btn btn-secondary next" type="button" data-goto="1">Next: check your accounts</button></div>
+        </section>
+
+        <section class="panel surface" role="tabpanel" id="step-2" aria-labelledby="tab-2">
+          <h3>Check your accounts</h3>
+          <p>Set a token for each provider you use, then run <code>hark doctor</code>. It checks every provider and tells you what failed. Providers you don't set up are listed and skipped.</p>
+          <dl class="env">
+            <dt>GitHub</dt>
+            <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
+            <dt>Jira</dt>
+            <dd><code>JIRA_URL</code>, <code>JIRA_EMAIL</code> and <code>JIRA_API_TOKEN</code></dd>
+            <dt>Todoist</dt>
+            <dd><code>TODOIST_API_TOKEN</code></dd>
+          </dl>
+          <pre class="code" tabindex="0" role="region" aria-label="Example output of hark doctor"><span class="muted">$</span> hark doctor
+hark 0.8.0
+github
+  <span class="ok">✓</span> token: logged in as you
+  <span class="ok">✓</span> notifications: readable
+jira
+  <span class="muted">- not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN</span>
+todoist
+  <span class="ok">✓</span> token: valid
+  <span class="bad">✗</span> activity log: GET /api/v1/activities: 403 Forbidden</pre>
+          <div class="panel-actions"><button class="btn btn-secondary next" type="button" data-goto="2">Next: start the monitors</button></div>
+        </section>
+
+        <section class="panel surface" role="tabpanel" id="step-3" aria-labelledby="tab-3">
+          <h3>Start the monitors</h3>
+          <p>Paste this prompt into the session. The agent starts one monitor per working provider, restarts them without losing events, tells you what each line asks of you, and asks before it replies to, closes or changes anything.</p>
+          <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Prompt for Claude Code">Watch my GitHub, Jira and Todoist activity with hark while we work.
+
+1. If `hark` is not on PATH, install it with
+   `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
+   Then run `hark help` and read it: it describes every line hark prints,
+   every flag and how to restart a monitor without losing events.
+2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start
+   monitors for providers whose checks all pass.
+   Start a background monitor running `hark github 2>&amp;1`, described as
+   "GitHub activity on my issues and PRs", with the longest timeout allowed.
+   When it expires, start it again. If more than an hour passed since it
+   stopped, add `--since &lt;time of its last line that is not an error&gt;`, so
+   nothing in between is lost. If your tool has no monitor, run it in the
+   background and read its output every few minutes.
+3. Each line is one event:
+   `&lt;time&gt; github &lt;kind&gt; &lt;repo&gt;#&lt;number&gt; @&lt;actor&gt; [watching] "&lt;text&gt;" &lt;url&gt;`.
+   - `issue.commented` / `pr.commented` without `watching`: someone commented on
+     my issue or PR. Read the whole comment (`gh issue view` or `gh pr view
+     --comments`), tell me what it asks for, and if it is about the work in this
+     session, propose the change.
+   - `pr.reviewed`, `pr.changes_requested` without `watching`: someone reviewed
+     my PR. Read the review and its inline comments (`gh pr view --comments`
+     and `gh api repos/&lt;repo&gt;/pulls/&lt;number&gt;/comments`) and tell me what it asks for.
+   - `pr.approved`, `issue.closed`, `pr.closed`, `pr.merged`, `pr.opened`: tell me
+     in one line.
+   - Lines with `watching`: threads I follow but did not open. Mention them only
+     if they @mention me or touch what we are working on.
+   - `*.updated`: other activity, the text is GitHub's reason (for example
+     `review_requested`). Tell me about review requests.
+   - `ci.failed`: a workflow failed. Tell me which one and on which branch, and
+     offer to read the logs (`gh run list --repo &lt;repo&gt; --branch &lt;branch&gt;`).
+   - `ci.approval_requested`: someone is waiting for me to approve a deploy. Tell me.
+   - `ci.succeeded`, `ci.cancelled`, `ci.skipped`: stay quiet unless I am
+     waiting for that workflow.
+   - `error`: hark keeps retrying and prints a repeated error only once. Tell me
+     what failed.
+   - A line starting with `hark:` means hark stopped. Show it to me.
+4. If doctor shows jira working, start another monitor the same way with
+   `hark jira 2>&amp;1`, described as "Jira activity on my issues". Jira and
+   Todoist resume where they stopped on their own, so re-arm them without
+   `--since`:
+   - `jira.mentioned`, `jira.assigned`: tell me right away.
+   - `jira.commented`: tell me what it asks for.
+   - `jira.transitioned`: tell me in one line.
+   If doctor shows todoist working, start one more with `hark todoist 2>&amp;1`,
+   described as "Todoist activity":
+   - `task.due`: remind me of what is due today, once.
+   - `task.commented`: tell me what the comment says.
+   - `task.created`, `task.completed`, `task.rescheduled`: stay quiet unless
+     the task is about the work in this session.
+   If I ask to watch only some repos, projects or tasks, pass `--filter` with
+   the provider's own syntax (see the hark README).
+5. Never reply, close or change anything on GitHub, Jira or Todoist without
+   asking me first.</pre>
+          <div class="panel-actions"><button class="btn btn-primary" type="button" data-copy="prompt">Copy prompt</button></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="providers" aria-labelledby="providers-title">
+    <div class="wrap">
+      <h2 id="providers-title">What each provider reports</h2>
+      <p class="intro">Run one hark per provider. Each one checks every minute and prints only what is new since its last line.</p>
+
+      <div class="providers">
+        <article class="provider surface" aria-labelledby="p-github">
+          <h3 id="p-github">GitHub</h3>
+          <dl class="kinds">
+            <div><dt><code>issue.commented</code><code>pr.commented</code></dt><dd>Someone comments on your issue or PR, or one you watch.</dd></div>
+            <div><dt><code>pr.reviewed</code><code>pr.approved</code><code>pr.changes_requested</code></dt><dd>Someone reviews a PR, with the review and how many inline comments it has.</dd></div>
+            <div><dt><code>issue.closed</code><code>pr.closed</code><code>pr.merged</code><code>pr.opened</code></dt><dd>Someone, or you, opens, closes or merges.</dd></div>
+            <div><dt><code>ci.failed</code><code>ci.succeeded</code><code>ci.cancelled</code><code>ci.skipped</code></dt><dd>A workflow run you get notified about finished.</dd></div>
+            <div><dt><code>ci.approval_requested</code></dt><dd>A deploy is waiting for your approval.</dd></div>
+            <div><dt><code>issue.updated</code><code>pr.updated</code></dt><dd>Anything else, with GitHub's reason, like <code>review_requested</code>.</dd></div>
+          </dl>
+          <p>Marks each notification as read once it prints it, so nothing comes twice. After more than an hour off, pass the last line's time to <code>--since</code>.</p>
+          <div class="filter">
+            <span class="label">Watch less, with notification search qualifiers</span>
+            <code class="cmd">--filter 'org:acme -is:ci'</code>
+          </div>
+        </article>
+
+        <article class="provider surface" aria-labelledby="p-jira">
+          <h3 id="p-jira">Jira</h3>
+          <dl class="kinds">
+            <div><dt><code>jira.commented</code></dt><dd>Someone comments on an issue you are assigned to, reported or watch.</dd></div>
+            <div><dt><code>jira.mentioned</code></dt><dd>A comment @mentions you.</dd></div>
+            <div><dt><code>jira.transitioned</code></dt><dd>The status changes, like <code>To Do to Done</code>.</dd></div>
+            <div><dt><code>jira.assigned</code></dt><dd>Someone assigns the issue to you.</dd></div>
+          </dl>
+          <p>Skips your own actions and saves its place in <code>~/.local/state/hark</code>, so a restart continues where it stopped.</p>
+          <div class="filter">
+            <span class="label">Watch less, with JQL</span>
+            <code class="cmd">--filter 'project = PROJ AND priority = High'</code>
+          </div>
+        </article>
+
+        <article class="provider surface" aria-labelledby="p-todoist">
+          <h3 id="p-todoist">Todoist</h3>
+          <dl class="kinds">
+            <div><dt><code>task.created</code><code>task.completed</code></dt><dd>A task is added or completed, by you or a collaborator.</dd></div>
+            <div><dt><code>task.rescheduled</code></dt><dd>A due date changes, with the new date.</dd></div>
+            <div><dt><code>task.commented</code></dt><dd>Someone comments on a task.</dd></div>
+            <div><dt><code>task.due</code></dt><dd>Once a day, for each task due today.</dd></div>
+          </dl>
+          <p>Reads the activity log, so your plan needs activity history. Saves its place like Jira does.</p>
+          <div class="filter">
+            <span class="label">Watch less, with a Todoist filter</span>
+            <code class="cmd">--filter '#Work &amp; p1'</code>
+          </div>
+        </article>
+      </div>
+      <p class="providers-note muted small">Every provider also prints an <code>error</code> line when a request fails, once, and keeps checking.</p>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="notes-title">
+    <div class="wrap">
+      <h2 id="notes-title">Before you leave it running</h2>
+      <div class="notes">
+        <div>
+          <h3>Filter with <code>--filter</code>, not grep</h3>
+          <p>hark marks the GitHub notifications it prints as read, so a line you drop with <code>grep -v</code> leaves your unread list without anyone seeing it. Threads that <code>--filter</code> drops stay unread.</p>
+        </div>
+        <div>
+          <h3>Restarts lose nothing</h3>
+          <p>Jira and Todoist resume from a saved cursor. GitHub starts one hour back, or from the time you pass to <code>--since</code>.</p>
+        </div>
+        <div>
+          <h3>It stays up to date</h3>
+          <p>On every start, a released hark looks for a newer release, verifies its checksum and restarts on it. Set <code>HARK_NO_UPDATE=1</code> to turn that off, or run <code>hark update</code> when you want it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p class="muted small">hark is open source, for Linux and macOS. Run <code>hark help</code> for the full reference.</p>
+    <ul>
+      <li><a href="https://github.com/dukex/hark">Source</a></li>
+      <li><a href="https://github.com/dukex/hark#readme">README</a></li>
+      <li><a href="https://github.com/dukex/hark/releases">Releases</a></li>
+      <li><a href="https://github.com/dukex/hark/issues">Issues</a></li>
+    </ul>
+  </div>
+</footer>
+
+<p class="visually-hidden" role="status" id="status"></p>
+
+<script>
+(() => {
+  const status = document.getElementById("status");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const copy = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.append(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      return ok;
+    }
+  };
+
+  document.querySelectorAll("[data-copy]").forEach((button) => {
+    const label = button.textContent;
+    let timer;
+    button.addEventListener("click", async () => {
+      const ok = await copy(document.getElementById(button.dataset.copy).textContent.trim());
+      button.textContent = ok ? "Copied" : "Select and copy";
+      status.textContent = ok ? "Copied to the clipboard" : "Copy failed, select the text and copy it";
+      clearTimeout(timer);
+      timer = setTimeout(() => { button.textContent = label; }, 2000);
+    });
+  });
+
+  const lines = [...document.querySelectorAll(".events li")];
+  if (!reduce) {
+    lines.forEach((line) => line.classList.add("pending"));
+    lines.forEach((line, i) => setTimeout(() => line.classList.remove("pending"), 300 + i * 420));
+  }
+
+  const fieldButtons = [...document.querySelectorAll("[data-field]")];
+  const parts = [...document.querySelectorAll("[data-f]")];
+  fieldButtons.forEach((button) => button.addEventListener("click", () => {
+    const name = button.dataset.field;
+    fieldButtons.forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+    parts.forEach((p) => p.classList.toggle("on", p.dataset.f === name));
+  }));
+
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const show = (index, focus) => {
+    tabs.forEach((tab, i) => {
+      const selected = i === index;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      tab.classList.toggle("done", i < index);
+      tab.classList.toggle("reached", i <= index);
+      document.getElementById(tab.getAttribute("aria-controls")).hidden = !selected;
+    });
+    if (focus) tabs[index].focus();
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => show(i, false));
+    tab.addEventListener("keydown", (event) => {
+      const moves = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 };
+      if (!(event.key in moves)) return;
+      event.preventDefault();
+      show((moves[event.key] + tabs.length) % tabs.length, true);
+    });
+  });
+  document.querySelectorAll("[data-goto]").forEach((button) => {
+    button.addEventListener("click", () => show(Number(button.dataset.goto), true));
+  });
+  show(0, false);
+})();
+</script>
+</body>
+</html>

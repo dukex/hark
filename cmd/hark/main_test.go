@@ -65,7 +65,7 @@ func TestMissingTokenIsReported(t *testing.T) {
 	if code := run(context.Background(), []string{"github"}, env(nil), nil, &stderr); code != 1 {
 		t.Errorf("exit %d, want 1", code)
 	}
-	if !strings.Contains(stderr.String(), "set GITHUB_TOKEN or log in with gh: not logged in") {
+	if !strings.Contains(stderr.String(), "run `hark login github` or `gh auth login`, or set GITHUB_TOKEN: not logged in") {
 		t.Errorf("stderr %q", stderr.String())
 	}
 }

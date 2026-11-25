@@ -6,6 +6,7 @@ print and what to do with it.
 
 USAGE
   hark <provider> [OPTIONS]                         watch one provider until stopped
+  hark login <provider>                             save a provider's tokens in the keychain
   hark doctor                                       check that every provider is set up
   hark update                                       install the latest release and exit
   hark version | --version | -v                     print the installed version
@@ -21,7 +22,9 @@ USAGE
 FOR AGENTS
   1. Run `hark doctor`. Start monitors only for providers whose checks all
      show ✓. A `-` line means the provider is not configured, which is fine.
-     A `✗` line means it is broken: tell the user what failed.
+     A `✗` line means it is broken: tell the user what failed. To set up a
+     provider, ask the user to run `hark login <provider>` in their own
+     terminal: it asks for tokens, so never run it or pass tokens yourself.
   2. Start `hark <provider> 2>&1` as a background monitor, one per provider,
      and read its output line by line. Each event is exactly one line.
   3. When a monitor ends or times out, start it again:
@@ -293,6 +296,12 @@ OPTIONS
       --since TIME, the first field of the last event line.
 
 COMMANDS
+  hark login <provider>
+      Asks for each value the provider needs (tokens without echo) and saves
+      them in the system keychain: the macOS Keychain, or the Secret Service
+      keyring through secret-tool on Linux. Without a keychain it saves them
+      in $XDG_CONFIG_HOME/hark/credentials (~/.config/hark/credentials),
+      readable only by the user. Run it again to replace a value.
   hark doctor
       Checks every provider and prints, for each one:
         ✓ <check>: <what works>
@@ -306,6 +315,10 @@ COMMANDS
       date". Watching also updates on start, unless HARK_NO_UPDATE=1.
 
 ENVIRONMENT
+  hark reads the provider values below from the keychain first, then from
+  ~/.config/hark/credentials, and only then from the environment, so
+  `hark login` is the way to set them. HARK_* and XDG_* come only from the
+  environment.
   DD_API_KEY          a Datadog API key, Organization Settings, API Keys.
   DD_APP_KEY          a Datadog application key with events_read,
                       Organization Settings, Application Keys.

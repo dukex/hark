@@ -933,7 +933,7 @@ p code, dd code, li code, summary code {
         <div class="panels">
           <section class="panel" role="tabpanel" id="step-1" aria-labelledby="tab-1">
             <h3>Connect your accounts</h3>
-            <p>Export a token for each service you use in your shell profile, so Claude Code starts with them. GitHub needs nothing more if you are logged in with <code>gh</code>.</p>
+            <p>Run <code>hark login &lt;service&gt;</code> in your terminal for each service you use. It asks for what the service needs, without echoing tokens, and keeps them in your system keychain, never in your shell profile. GitHub needs nothing more if you are logged in with <code>gh</code>.</p>
             <dl class="env">
               <dt>GitHub</dt>
               <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
@@ -963,7 +963,9 @@ p code, dd code, li code, summary code {
    Then run `hark help` and read it: it describes every line hark prints,
    every flag and how to restart a monitor without losing events.
 2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start
-   monitors for providers whose checks all pass.
+   monitors for providers whose checks all pass. To set up one that is not
+   configured, tell me to run `hark login &lt;provider&gt;` in my own terminal;
+   never ask me to paste a token here.
    Start a background monitor running `hark github 2&gt;&amp;1`, described as
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
    When it expires, start it again. If more than an hour passed since it
@@ -1046,16 +1048,16 @@ p code, dd code, li code, summary code {
             <pre class="code" tabindex="0" role="region" aria-label="Example output of hark doctor"><span class="muted">$</span> hark doctor
 hark 0.8.0
 datadog
-  <span class="muted">- not configured: set DD_API_KEY, DD_APP_KEY</span>
+  <span class="muted">- not configured: run `hark login datadog`, or set DD_API_KEY, DD_APP_KEY</span>
 discord
-  <span class="muted">- not configured: set DISCORD_TOKEN and DISCORD_USER_ID</span>
+  <span class="muted">- not configured: run `hark login discord`, or set DISCORD_TOKEN and DISCORD_USER_ID</span>
 github
   <span class="ok">✓</span> token: logged in as you
   <span class="ok">✓</span> notifications: readable
 jira
-  <span class="muted">- not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN</span>
+  <span class="muted">- not configured: run `hark login jira`, or set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN</span>
 linear
-  <span class="muted">- not configured: set LINEAR_API_KEY</span>
+  <span class="muted">- not configured: run `hark login linear`, or set LINEAR_API_KEY</span>
 slack
   <span class="ok">✓</span> token: logged in as you on acme
   <span class="ok">✓</span> search: 4 mentions and 12 DMs in the last 7 days

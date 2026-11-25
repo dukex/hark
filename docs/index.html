@@ -6,9 +6,9 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0D0D0D">
 <title>hark</title>
-<meta name="description" content="hark watches your GitHub, Jira and Todoist accounts and prints one line per event, so Claude Code can run it as a monitor and tell you what changed while you work.">
+<meta name="description" content="hark watches your GitHub, Jira, Slack and Todoist accounts and prints one line per event, so Claude Code can run it as a monitor and tell you what changed while you work.">
 <meta property="og:title" content="hark">
-<meta property="og:description" content="Your GitHub, Jira and Todoist activity, one line per event, for Claude Code monitors.">
+<meta property="og:description" content="Your GitHub, Jira, Slack and Todoist activity, one line per event, for Claude Code monitors.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://dukex.github.io/hark/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F2C94C'/%3E%3Ctext x='16' y='23' font-family='Inter,Arial,sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='%23000'%3Eh%3C/text%3E%3C/svg%3E">
@@ -74,7 +74,7 @@ ul, ol { padding: 0; list-style: none; }
 
 h1, h2, h3 { line-height: 1.2; font-weight: 700; }
 
-h1 { font-size: var(--fs-xxl); letter-spacing: -0.02em; max-width: 22ch; }
+h1 { font-size: var(--fs-xxl); letter-spacing: -0.02em; max-width: 24ch; }
 
 h2 { font-size: var(--fs-xl); letter-spacing: -0.01em; }
 
@@ -445,12 +445,18 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 
 .providers {
   margin-top: var(--sp-xl);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-md);
+  columns: 2;
+  column-gap: var(--sp-md);
 }
 
-.provider { padding: var(--sp-lg); display: flex; flex-direction: column; gap: var(--sp-lg); }
+.provider {
+  padding: var(--sp-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-lg);
+  break-inside: avoid;
+  margin-bottom: var(--sp-md);
+}
 
 .provider h3 { font-size: var(--fs-xl); }
 
@@ -505,7 +511,8 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 }
 
 @media (max-width: 899px) {
-  .providers, .notes { grid-template-columns: minmax(0, 1fr); }
+  .providers { columns: 1; }
+  .notes { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 639px) {
@@ -540,8 +547,8 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 <main>
   <section class="hero" aria-labelledby="title">
     <div class="wrap">
-      <h1 id="title">Your GitHub, Jira and Todoist activity, one line per event</h1>
-      <p class="lead">hark watches your accounts and prints every comment, review, merge, failed build and due task as a single line. Run it as a Claude Code monitor and your agent tells you what changed while you keep working.</p>
+      <h1 id="title">Your GitHub, Jira, Slack and Todoist activity, one line per event</h1>
+      <p class="lead">hark watches your accounts and prints every comment, review, merge, failed build, mention and due task as a single line. Run it as a Claude Code monitor and your agent tells you what changed while you keep working.</p>
 
       <div class="install">
         <span class="label">Install on Linux or macOS</span>
@@ -552,10 +559,11 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
         <p class="alt muted small">Or with Go: <code>go install github.com/dukex/hark/cmd/hark@latest</code></p>
       </div>
 
-      <div class="stream surface" role="figure" aria-label="Example output from three hark monitors">
+      <div class="stream surface" role="figure" aria-label="Example output from four hark monitors">
         <div class="stream-head">
           <span class="tag">hark github</span>
           <span class="tag">hark jira</span>
+          <span class="tag">hark slack</span>
           <span class="tag">hark todoist</span>
           <span class="live">Live</span>
         </div>
@@ -566,6 +574,7 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
           <li><span class="ev-t">2026-11-23T10:12:00Z</span> <span class="ev-p">github</span> <span class="ev-k bad">ci.failed</span> acme/api "CI workflow run failed for main branch"</li>
           <li><span class="ev-t">2026-11-23T10:14:00Z</span> <span class="ev-p">github</span> <span class="ev-k warn">pr.changes_requested</span> dukex/foo#15 @carol "move the migration to its own PR (2 inline comments)" <span class="ev-u">https://github.com/dukex/foo/pull/15#pullrequestreview-31</span></li>
           <li><span class="ev-t">2026-11-23T10:15:00Z</span> <span class="ev-p">jira</span> <span class="ev-k">jira.transitioned</span> PROJ-7 "Checkout: To Do to Done (Ana)" <span class="ev-u">https://example.atlassian.net/browse/PROJ-7</span></li>
+          <li><span class="ev-t">2026-11-23T10:17:00Z</span> <span class="ev-p">slack</span> <span class="ev-k warn">slack.mentioned</span> #deploys @ana "&lt;@U012AB&gt; can you look?" <span class="ev-u">https://example.slack.com/archives/C01/p1732356300000100</span></li>
           <li><span class="ev-t">2026-11-23T10:18:00Z</span> <span class="ev-p">jira</span> <span class="ev-k warn">jira.mentioned</span> PROJ-9 "Ana: can you check the refund copy before Friday?" <span class="ev-u">https://example.atlassian.net/browse/PROJ-9</span></li>
           <li><span class="ev-t">2026-11-23T10:20:00Z</span> <span class="ev-p">todoist</span> <span class="ev-k ok">task.completed</span> "Pay the power bill" <span class="ev-u">https://app.todoist.com/app/task/6X7rM8</span></li>
         </ol>
@@ -584,13 +593,13 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 
         <ul class="fields">
           <li><button type="button" data-field="time" aria-pressed="false"><span class="fname">TIME</span><span class="fdesc">When it happened, in UTC. Pass it to <code>--since</code> to pick up where a stopped monitor left off.</span></button></li>
-          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">github, jira or todoist. You run one hark per provider.</span></button></li>
-          <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>jira.mentioned</code> or <code>task.due</code>.</span></button></li>
-          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR, as <code>owner/repo#number</code>, or the Jira key. Todoist lines have none.</span></button></li>
-          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login of who did it. Jira puts the name inside the text.</span></button></li>
+          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">github, jira, slack or todoist. You run one hark per provider.</span></button></li>
+          <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>slack.dm</code> or <code>task.due</code>.</span></button></li>
+          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira key, or the Slack <code>#channel</code>. Slack DMs and Todoist lines have none.</span></button></li>
+          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login or Slack username of who did it. Jira puts the name inside the text.</span></button></li>
           <li><button type="button" data-field="watching" aria-pressed="false"><span class="fname">watching</span><span class="fdesc">Someone else opened this thread and you follow it. Without it, the issue or PR is yours.</span></button></li>
           <li><button type="button" data-field="text" aria-pressed="false"><span class="fname">"TEXT"</span><span class="fdesc">The comment, review or title on one line, cut at 140 characters.</span></button></li>
-          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR or task.</span></button></li>
+          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR, message or task.</span></button></li>
         </ul>
       </div>
     </div>
@@ -626,6 +635,8 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
             <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
             <dt>Jira</dt>
             <dd><code>JIRA_URL</code>, <code>JIRA_EMAIL</code> and <code>JIRA_API_TOKEN</code></dd>
+            <dt>Slack</dt>
+            <dd><code>SLACK_TOKEN</code>, the user token of a Slack app you create with the <code>search:read</code> user scope</dd>
             <dt>Todoist</dt>
             <dd><code>TODOIST_API_TOKEN</code></dd>
           </dl>
@@ -636,16 +647,21 @@ github
   <span class="ok">✓</span> notifications: readable
 jira
   <span class="muted">- not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN</span>
+slack
+  <span class="ok">✓</span> token: logged in as you on acme
+  <span class="ok">✓</span> search: 4 mentions and 12 DMs in the last 7 days
+  <span class="ok">✓</span> state: /home/you/.local/state/hark/slack.json
 todoist
   <span class="ok">✓</span> token: valid
-  <span class="bad">✗</span> activity log: GET /api/v1/activities: 403 Forbidden</pre>
+  <span class="bad">✗</span> activity log: GET /api/v1/activities: 403 Forbidden
+  <span class="ok">✓</span> state: /home/you/.local/state/hark/todoist.json</pre>
           <div class="panel-actions"><button class="btn btn-secondary next" type="button" data-goto="2">Next: start the monitors</button></div>
         </section>
 
         <section class="panel surface" role="tabpanel" id="step-3" aria-labelledby="tab-3">
           <h3>Start the monitors</h3>
-          <p>Paste this prompt into the session. The agent starts one monitor per working provider, restarts them without losing events, tells you what each line asks of you, and asks before it replies to, closes or changes anything.</p>
-          <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Prompt for Claude Code">Watch my GitHub, Jira and Todoist activity with hark while we work.
+          <p>Paste this prompt into the session. The agent starts one monitor per working provider, restarts them without losing events, tells you what each line asks of you, and asks before it replies, reacts, closes or changes anything.</p>
+          <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Prompt for Claude Code">Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -653,7 +669,7 @@ todoist
    every flag and how to restart a monitor without losing events.
 2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start
    monitors for providers whose checks all pass.
-   Start a background monitor running `hark github 2>&amp;1`, described as
+   Start a background monitor running `hark github 2&gt;&amp;1`, described as
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
    When it expires, start it again. If more than an hour passed since it
    stopped, add `--since &lt;time of its last line that is not an error&gt;`, so
@@ -683,22 +699,26 @@ todoist
      what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
-   `hark jira 2>&amp;1`, described as "Jira activity on my issues". Jira and
-   Todoist resume where they stopped on their own, so re-arm them without
+   `hark jira 2&gt;&amp;1`, described as "Jira activity on my issues". Jira, Slack
+   and Todoist resume where they stopped on their own, so re-arm them without
    `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
-   If doctor shows todoist working, start one more with `hark todoist 2>&amp;1`,
+   If doctor shows todoist working, start one more with `hark todoist 2&gt;&amp;1`,
    described as "Todoist activity":
    - `task.due`: remind me of what is due today, once.
    - `task.commented`: tell me what the comment says.
    - `task.created`, `task.completed`, `task.rescheduled`: stay quiet unless
      the task is about the work in this session.
-   If I ask to watch only some repos, projects or tasks, pass `--filter` with
-   the provider's own syntax (see the hark README).
-5. Never reply, close or change anything on GitHub, Jira or Todoist without
-   asking me first.</pre>
+   If doctor shows slack working, start `hark slack 2&gt;&amp;1`, described as
+   "Slack mentions and DMs":
+   - `slack.mentioned`, `slack.dm`: tell me who wrote, where, and what they
+     ask for. Do not answer in Slack.
+   If I ask to watch only some repos, projects, channels or tasks, pass
+   `--filter` with the provider's own syntax (see the hark README).
+5. Never reply, react, close or change anything on GitHub, Jira, Slack or
+   Todoist without asking me first.</pre>
           <div class="panel-actions"><button class="btn btn-primary" type="button" data-copy="prompt">Copy prompt</button></div>
         </section>
       </div>
@@ -743,6 +763,19 @@ todoist
           </div>
         </article>
 
+        <article class="provider surface" aria-labelledby="p-slack">
+          <h3 id="p-slack">Slack</h3>
+          <dl class="kinds">
+            <div><dt><code>slack.mentioned</code></dt><dd>Someone @mentions you, in a channel or a DM.</dd></div>
+            <div><dt><code>slack.dm</code></dt><dd>Someone writes to you in a DM or group DM.</dd></div>
+          </dl>
+          <p>Finds them with Slack search, so a message shows up once Slack indexes it, usually within a minute. Skips your own messages and saves its place like Jira does.</p>
+          <div class="filter">
+            <span class="label">Watch less, with Slack search modifiers</span>
+            <code class="cmd">--filter '-in:#random -in:#alerts'</code>
+          </div>
+        </article>
+
         <article class="provider surface" aria-labelledby="p-todoist">
           <h3 id="p-todoist">Todoist</h3>
           <dl class="kinds">
@@ -772,7 +805,7 @@ todoist
         </div>
         <div>
           <h3>Restarts lose nothing</h3>
-          <p>Jira and Todoist resume from a saved cursor. GitHub starts one hour back, or from the time you pass to <code>--since</code>.</p>
+          <p>Jira, Slack and Todoist resume from a saved cursor. GitHub starts one hour back, or from the time you pass to <code>--since</code>.</p>
         </div>
         <div>
           <h3>It stays up to date</h3>

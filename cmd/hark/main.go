@@ -72,7 +72,7 @@ func newGitHub(getenv func(string) string, o options) (hark.Provider, error) {
 	if token == "" {
 		t, err := ghToken()
 		if err != nil {
-			return nil, fmt.Errorf("%w: set GITHUB_TOKEN or log in with gh: %w", errNotConfigured, err)
+			return nil, fmt.Errorf("%w: run `hark login github` or `gh auth login`, or set GITHUB_TOKEN: %w", errNotConfigured, err)
 		}
 		token = t
 	}
@@ -92,7 +92,7 @@ func newGitHub(getenv func(string) string, o options) (hark.Provider, error) {
 func newTodoist(getenv func(string) string, o options) (hark.Provider, error) {
 	token := getenv("TODOIST_API_TOKEN")
 	if token == "" {
-		return nil, fmt.Errorf("%w: set TODOIST_API_TOKEN to a token from Todoist settings, Integrations, Developer", errNotConfigured)
+		return nil, fmt.Errorf("%w: run `hark login todoist`, or set TODOIST_API_TOKEN to a token from Todoist settings, Integrations, Developer", errNotConfigured)
 	}
 	state, err := hark.StatePath("todoist")
 	if err != nil {
@@ -111,7 +111,7 @@ func newJira(getenv func(string) string, o options) (hark.Provider, error) {
 		}
 	}
 	if len(missing) > 0 {
-		return nil, fmt.Errorf("%w: set %s (the token comes from id.atlassian.com, Security, API tokens)", errNotConfigured, strings.Join(missing, ", "))
+		return nil, fmt.Errorf("%w: run `hark login jira`, or set %s (the token comes from id.atlassian.com, Security, API tokens)", errNotConfigured, strings.Join(missing, ", "))
 	}
 	state, err := hark.StatePath("jira")
 	if err != nil {
@@ -130,7 +130,7 @@ func newDatadog(getenv func(string) string, o options) (hark.Provider, error) {
 		}
 	}
 	if len(missing) > 0 {
-		return nil, fmt.Errorf("%w: set %s (keys from Datadog, Organization Settings, API Keys and Application Keys) and DD_SITE if not datadoghq.com", errNotConfigured, strings.Join(missing, ", "))
+		return nil, fmt.Errorf("%w: run `hark login datadog`, or set %s (keys from Datadog, Organization Settings, API Keys and Application Keys) and DD_SITE if not datadoghq.com", errNotConfigured, strings.Join(missing, ", "))
 	}
 	state, err := hark.StatePath("datadog")
 	if err != nil {
@@ -149,7 +149,7 @@ func newDatadog(getenv func(string) string, o options) (hark.Provider, error) {
 func newLinear(getenv func(string) string, o options) (hark.Provider, error) {
 	key := getenv("LINEAR_API_KEY")
 	if key == "" {
-		return nil, fmt.Errorf("%w: set LINEAR_API_KEY to a personal API key from Linear, Settings, Security & access", errNotConfigured)
+		return nil, fmt.Errorf("%w: run `hark login linear`, or set LINEAR_API_KEY to a personal API key from Linear, Settings, Security & access", errNotConfigured)
 	}
 	state, err := hark.StatePath("linear")
 	if err != nil {
@@ -163,7 +163,7 @@ func newLinear(getenv func(string) string, o options) (hark.Provider, error) {
 func newDiscord(getenv func(string) string, o options) (hark.Provider, error) {
 	token, user := getenv("DISCORD_TOKEN"), getenv("DISCORD_USER_ID")
 	if token == "" || user == "" {
-		return nil, fmt.Errorf("%w: set DISCORD_TOKEN and DISCORD_USER_ID (the bot token of a Discord app with Message Content Intent, added to your servers, and your own user ID)", errNotConfigured)
+		return nil, fmt.Errorf("%w: run `hark login discord`, or set DISCORD_TOKEN and DISCORD_USER_ID (the bot token of a Discord app with Message Content Intent, added to your servers, and your own user ID)", errNotConfigured)
 	}
 	state, err := hark.StatePath("discord")
 	if err != nil {
@@ -177,7 +177,7 @@ func newDiscord(getenv func(string) string, o options) (hark.Provider, error) {
 func newSlack(getenv func(string) string, o options) (hark.Provider, error) {
 	token := getenv("SLACK_TOKEN")
 	if token == "" {
-		return nil, fmt.Errorf("%w: set SLACK_TOKEN to the user token (xoxp-) of a Slack app with the search:read user scope", errNotConfigured)
+		return nil, fmt.Errorf("%w: run `hark login slack`, or set SLACK_TOKEN to the user token (xoxp-) of a Slack app with the search:read user scope", errNotConfigured)
 	}
 	state, err := hark.StatePath("slack")
 	if err != nil {
@@ -203,6 +203,7 @@ func displayVersion() string {
 }
 
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	getenv = credentials(getenv)
 	if len(args) == 0 || len(args) == 1 && slices.Contains([]string{"help", "--help", "-h"}, args[0]) {
 		_, _ = fmt.Fprint(stdout, helpText)
 		return 0
@@ -213,6 +214,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	}
 	if len(args) == 1 && args[0] == "doctor" {
 		return doctor(ctx, getenv, stdout)
+	}
+	if args[0] == "login" && len(args) <= 2 {
+		return login(ctx, getenv, strings.Join(args[1:], ""), stdout, stderr)
 	}
 	if len(args) == 1 && args[0] == "update" {
 		return selfUpdate(ctx, stdout, stderr)

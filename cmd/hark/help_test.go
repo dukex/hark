@@ -26,7 +26,7 @@ func TestHelpCoversEveryProviderAndFlag(t *testing.T) {
 			t.Errorf("help has no section for %s", name)
 		}
 	}
-	for _, s := range []string{"--since TIME", "--filter RULES", "--exit-on-event", "hark doctor", "hark update", "HARK_NO_UPDATE", "EXIT STATUS"} {
+	for _, s := range []string{"--since TIME", "--filter RULES", "--exit-on-event", "hark login", "hark doctor", "hark update", "HARK_NO_UPDATE", "EXIT STATUS"} {
 		if !strings.Contains(helpText, s) {
 			t.Errorf("help does not mention %s", s)
 		}

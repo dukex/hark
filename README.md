@@ -23,6 +23,22 @@ With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 
 `hark --version` (or `-v`) prints the installed version.
 
+### Connecting your accounts
+
+Run `hark login <provider>` for each service you use, in your own terminal:
+
+```
+$ hark login jira
+JIRA_URL (your Jira Cloud site, like https://example.atlassian.net): https://example.atlassian.net
+JIRA_EMAIL (the e-mail of your Atlassian account): you@example.com
+JIRA_API_TOKEN (id.atlassian.com, Security, API tokens):
+jira saved to the macOS Keychain. Run `hark doctor` to check it.
+```
+
+It asks for each value the provider needs, without echoing tokens, and saves them in the macOS Keychain, or in the Secret Service keyring through `secret-tool` on Linux. Without a keychain it saves them in `~/.config/hark/credentials`, readable only by you. Run it again to replace a value. GitHub needs no login if you use `gh`.
+
+hark reads each value from the keychain first, then from that file, and only then from an environment variable of the same name, so tokens you already export keep working. Each provider section below lists the values and where to get them.
+
 ### Checking the setup
 
 `hark doctor` checks every provider and exits with 1 if a configured one is broken:
@@ -30,16 +46,16 @@ With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 ```
 hark 0.8.0
 datadog
-  - not configured: set DD_API_KEY, DD_APP_KEY (...)
+  - not configured: run `hark login datadog`, or set DD_API_KEY, DD_APP_KEY (...)
 discord
-  - not configured: set DISCORD_TOKEN and DISCORD_USER_ID (...)
+  - not configured: run `hark login discord`, or set DISCORD_TOKEN and DISCORD_USER_ID (...)
 github
   ✓ token: logged in as you
   ✓ notifications: readable
 jira
-  - not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN (...)
+  - not configured: run `hark login jira`, or set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN (...)
 linear
-  - not configured: set LINEAR_API_KEY (...)
+  - not configured: run `hark login linear`, or set LINEAR_API_KEY (...)
 slack
   ✓ token: logged in as you on acme
   ✓ search: 4 mentions and 12 DMs in the last 7 days
@@ -70,7 +86,9 @@ Watch my Datadog, Discord, GitHub, Jira, Linear, Slack and Todoist activity with
    Then run `hark help` and read it: it describes every line hark prints,
    every flag and how to restart a monitor without losing events.
 2. Run `hark doctor`. If a provider shows `✗`, tell me what failed. Only start
-   monitors for providers whose checks all pass.
+   monitors for providers whose checks all pass. To set up one that is not
+   configured, tell me to run `hark login <provider>` in my own terminal;
+   never ask me to paste a token here.
    Start a background monitor running `hark github 2>&1`, described as
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
    When it expires, start it again. If more than an hour passed since it
@@ -309,7 +327,7 @@ The text is the event title, the link opens the monitor. Re-notifications, and t
 
 ## Adding a provider
 
-Implement `hark.Provider` and register a constructor in `providers` in `cmd/hark/main.go`. The constructor returns an error wrapping `errNotConfigured` when credentials are missing, so `hark doctor` can tell "not configured" from "broken".
+Implement `hark.Provider` and register a constructor in `providers` in `cmd/hark/main.go`. The constructor returns an error wrapping `errNotConfigured` when credentials are missing, so `hark doctor` can tell "not configured" from "broken". List the values it reads in `logins` in `cmd/hark/credentials.go`, so `hark login` asks for them and hark looks them up in the keychain.
 
 ```go
 type Provider interface {

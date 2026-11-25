@@ -2,6 +2,8 @@
 
 `hark` watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues, PRs, tasks, messages and monitors.
 
+Site: [hark.dukex.sh](https://hark.dukex.sh)
+
 ```
 $ hark github
 2026-11-23T10:05:00Z github issue.commented dukex/foo#3 @alice "works here" https://github.com/dukex/foo/issues/3#issuecomment-9

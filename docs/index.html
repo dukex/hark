@@ -5,16 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0D0D0D">
-<title>hark</title>
-<meta name="description" content="hark watches your Datadog, GitHub, Jira, Slack and Todoist accounts and prints one line per event, so Claude Code can run it as a monitor and tell you what changed while you work.">
-<meta property="og:title" content="hark">
-<meta property="og:description" content="Your Datadog, GitHub, Jira, Slack and Todoist activity, one line per event, for Claude Code monitors.">
+<title>hark: keep Claude Code in the loop on reviews, CI and alerts</title>
+<meta name="description" content="hark connects Claude Code to GitHub, Slack, Jira, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<link rel="canonical" href="https://hark.dukex.sh/">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://dukex.github.io/hark/">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F2C94C'/%3E%3Ctext x='16' y='23' font-family='Inter,Arial,sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='%23000'%3Eh%3C/text%3E%3C/svg%3E">
+<meta property="og:site_name" content="hark">
+<meta property="og:url" content="https://hark.dukex.sh/">
+<meta property="og:title" content="hark: keep your coding agent in the loop">
+<meta property="og:description" content="hark connects Claude Code to GitHub, Slack, Jira, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta property="og:image" content="https://hark.dukex.sh/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="hark: keep your coding agent in the loop. A review arrives and the agent offers to make the change.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="hark: keep your coding agent in the loop">
+<meta name="twitter:description" content="hark connects Claude Code to GitHub, Slack, Jira, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta name="twitter:image" content="https://hark.dukex.sh/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "hark",
+  "url": "https://hark.dukex.sh/",
+  "description": "hark connects Claude Code to GitHub, Slack, Jira, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS",
+  "image": "https://hark.dukex.sh/og.png",
+  "downloadUrl": "https://github.com/dukex/hark/releases/latest",
+  "sameAs": ["https://github.com/dukex/hark"],
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
 <style>
 :root {
   color-scheme: dark;
@@ -32,14 +58,10 @@
   --success: #4CAF50;
   --warning: #FF9800;
   --error: #F44336;
+  --success-soft: rgba(76, 175, 80, 0.12);
+  --warning-soft: rgba(255, 152, 0, 0.12);
   --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --fs-xs: 12px;
-  --fs-sm: 14px;
-  --fs-base: 16px;
-  --fs-lg: 18px;
-  --fs-xl: 24px;
-  --fs-xxl: 32px;
   --sp-xs: 4px;
   --sp-sm: 8px;
   --sp-md: 16px;
@@ -50,49 +72,52 @@
   --r-md: 8px;
   --r-lg: 12px;
   --r-full: 9999px;
+  --elev-lg: 0 8px 16px rgba(0, 0, 0, 0.8);
+  --container: 1120px;
+  --header: 64px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 [hidden] { display: none !important; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header) + var(--sp-md));
+}
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--sans);
-  font-size: var(--fs-base);
-  line-height: 1.5;
+  font: 400 16px/24px var(--sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, p, dl, dd, ol, ul, pre { margin: 0; }
+h1, h2, h3, p, dl, dd, ol, ul, pre, figure { margin: 0; }
 
 ul, ol { padding: 0; list-style: none; }
 
-h1, h2, h3 { line-height: 1.2; font-weight: 700; }
+h1, h2, h3 { font-weight: 700; text-wrap: balance; }
 
-h1 { font-size: var(--fs-xxl); letter-spacing: -0.02em; max-width: 24ch; }
+p { text-wrap: pretty; }
 
-h2 { font-size: var(--fs-xl); letter-spacing: -0.01em; }
+svg { display: block; }
 
-h3 { font-size: var(--fs-lg); }
+a { color: inherit; }
 
-code, pre, kbd { font-family: var(--mono); font-size: 0.875em; }
-
-p code, dd code, li code, dt code {
-  background: var(--elevated);
-  border-radius: var(--r-sm);
-  padding: 1px var(--sp-xs);
-}
-
-a { color: var(--text); text-underline-offset: 3px; text-decoration-color: var(--text-2); }
-
-a:hover { color: var(--primary); text-decoration-color: var(--primary); }
+code, pre { font-family: var(--mono); }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+p code, dd code, li code, summary code {
+  font-size: 0.875em;
+  background: var(--elevated);
+  border-radius: var(--r-sm);
+  padding: 2px var(--sp-xs);
+}
 
 .visually-hidden {
   position: absolute;
@@ -103,29 +128,11 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
   white-space: nowrap;
 }
 
-.wrap {
+.container {
   width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
+  max-width: calc(var(--container) + 2 * var(--sp-xl));
+  margin-inline: auto;
   padding-inline: var(--sp-md);
-}
-
-.lead {
-  color: var(--text-2);
-  font-size: var(--fs-lg);
-  max-width: 62ch;
-}
-
-.muted { color: var(--text-2); }
-
-.small { font-size: var(--fs-sm); }
-
-.label {
-  display: block;
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  margin-bottom: var(--sp-xs);
 }
 
 .btn {
@@ -133,220 +140,284 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
   align-items: center;
   justify-content: center;
   gap: var(--sp-sm);
-  min-height: 48px;
+  height: 48px;
   padding: 0 var(--sp-lg);
-  border-radius: var(--r-lg);
   border: 1px solid transparent;
-  font: 500 var(--fs-base)/1 var(--sans);
+  border-radius: var(--r-lg);
+  font: 500 16px/24px var(--sans);
   text-decoration: none;
-  cursor: pointer;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms, border-color 150ms;
 }
+
+.btn-sm { height: 40px; padding: 0 var(--sp-md); font-size: 14px; line-height: 20px; }
 
 .btn-primary { background: var(--primary); color: var(--inverse); }
 
-.btn-primary:hover { background: var(--primary-hover); color: var(--inverse); }
+.btn-primary:hover { background: var(--primary-hover); }
 
 .btn-primary:active { background: var(--primary-active); }
 
 .btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
 
-.btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
+.btn-secondary:hover { border-color: var(--text-2); }
 
-.btn-small { min-height: 40px; padding: 0 var(--sp-md); font-size: var(--fs-sm); }
+.no-js [data-copy] { display: none; }
 
-.top {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-lg);
-  padding-top: var(--sp-md);
-  padding-bottom: var(--sp-md);
+.js .nojs-only { display: none; }
+
+.kind {
+  display: inline-flex;
+  font: 500 12px/16px var(--mono);
+  padding: var(--sp-xs) var(--sp-sm);
+  border-radius: var(--r-sm);
+  background: var(--elevated);
+  color: var(--text);
 }
 
-.brand {
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  text-decoration: none;
-  letter-spacing: -0.01em;
-}
+.ok { color: var(--success); }
 
-.brand:hover { color: var(--text); }
+.warn { color: var(--warning); }
 
-.top nav { display: flex; gap: var(--sp-lg); margin-left: auto; }
+.bad { color: var(--error); }
 
-.top nav a { color: var(--text-2); text-decoration: none; font-size: var(--fs-sm); font-weight: 500; }
+.muted { color: var(--text-2); }
 
-.top nav a:hover { color: var(--text); }
-
-.hero { padding-top: var(--sp-xxl); padding-bottom: var(--sp-xxl); }
-
-.hero .lead { margin-top: var(--sp-md); }
-
-.install { margin-top: var(--sp-xl); max-width: 820px; }
-
-.field-row { display: flex; gap: var(--sp-sm); }
-
-.cmd {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  min-height: 48px;
-  padding: 0 var(--sp-md);
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  overflow-x: auto;
-  white-space: nowrap;
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-}
-
-.cmd::before { content: "$"; color: var(--text-2); margin-right: var(--sp-sm); }
-
-.surface .cmd { background: var(--elevated); }
-
-.install .alt { margin-top: var(--sp-sm); }
-
-.surface {
-  background: var(--surface);
-  border-radius: var(--r-md);
-}
-
-.stream { margin-top: var(--sp-xxl); }
-
-.stream-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-sm);
-  flex-wrap: wrap;
-  padding: var(--sp-sm) var(--sp-md);
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(13, 13, 13, 0.85);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--border);
 }
 
-.tag {
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  background: var(--elevated);
-  border-radius: var(--r-sm);
-  padding: 2px var(--sp-sm);
+.site-header .container {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xl);
+  height: var(--header);
 }
 
-.live {
-  margin-left: auto;
+.brand {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-sm);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  color: var(--success);
+  font: 700 18px/28px var(--sans);
+  letter-spacing: -0.01em;
+  text-decoration: none;
 }
 
-.live::before {
+.brand svg { width: 24px; height: 24px; }
+
+.nav { display: flex; gap: var(--sp-xl); }
+
+.nav a {
+  font: 500 14px/20px var(--sans);
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 150ms;
+}
+
+.nav a:hover { color: var(--text); }
+
+.header-actions { margin-left: auto; display: flex; gap: var(--sp-sm); }
+
+.hero { padding: var(--sp-xxl) 0 64px; }
+
+.hero-grid { display: grid; gap: var(--sp-xxl); align-items: center; }
+
+.hero h1 { max-width: 640px; font-size: 40px; line-height: 48px; letter-spacing: -0.025em; }
+
+.lead { margin-top: var(--sp-lg); font-size: 18px; line-height: 28px; color: var(--text-2); max-width: 560px; }
+
+.cta-row { margin-top: var(--sp-xl); display: flex; flex-wrap: wrap; gap: var(--sp-md); }
+
+.cta-note { margin-top: var(--sp-md); font-size: 14px; line-height: 20px; color: var(--text-2); max-width: 480px; }
+
+.session {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--elev-lg);
+  overflow: hidden;
+}
+
+.session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-md);
+  height: 40px;
+  padding: 0 var(--sp-md);
+  border-bottom: 1px solid var(--border);
+  font: 400 12px/16px var(--mono);
+  color: var(--text-2);
+}
+
+.session-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  font: 500 12px/16px var(--sans);
+  color: var(--success);
+  white-space: nowrap;
+}
+
+.session-status::before {
   content: "";
   width: 8px;
   height: 8px;
   border-radius: var(--r-full);
-  background: var(--success);
+  background: currentColor;
 }
 
-.events {
-  padding: var(--sp-md);
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
+.session-body { padding: var(--sp-lg); display: grid; gap: var(--sp-md); font-size: 14px; line-height: 20px; }
+
+.msg { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: var(--sp-sm); }
+
+.msg::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin: 6px 0 0 4px;
+  border-radius: var(--r-full);
+  background: var(--text);
 }
 
-.events li {
-  padding-left: 2ch;
-  text-indent: -2ch;
-  overflow-wrap: anywhere;
-}
+.msg-user { font-family: var(--mono); }
 
-.events li + li { margin-top: var(--sp-xs); }
-
-.js .events li { transition: opacity 180ms ease-out; }
-
-.js .events li.pending { opacity: 0; }
-
-.ev-t, .ev-p, .ev-u, .ev-w { color: var(--text-2); }
-
-.ev-k { font-weight: 500; }
-
-.ev-k.ok { color: var(--success); }
-
-.ev-k.warn { color: var(--warning); }
-
-.ev-k.bad { color: var(--error); }
-
-.stream-note { margin-top: var(--sp-md); }
-
-.section {
-  border-top: 1px solid var(--border);
-  padding-top: var(--sp-xxl);
-  padding-bottom: var(--sp-xxl);
-}
-
-.intro { margin-top: var(--sp-sm); max-width: 62ch; color: var(--text-2); }
-
-.anatomy-card { margin-top: var(--sp-lg); padding: var(--sp-lg); }
-
-.anatomy {
-  font-family: var(--mono);
-  font-size: var(--fs-base);
-  line-height: 1.8;
-  overflow-wrap: anywhere;
-}
-
-.anatomy span {
+.msg-user::before {
+  content: "›";
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 0;
+  background: none;
   color: var(--text-2);
-  text-decoration: underline 2px transparent;
-  text-underline-offset: 6px;
-  transition: color 120ms, text-decoration-color 120ms;
+  text-align: center;
 }
 
-.anatomy span.on { color: var(--primary); text-decoration-color: var(--primary); }
+.msg-work { color: var(--text-2); }
 
-.fields {
-  margin-top: var(--sp-lg);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-sm);
-}
+.msg-work::before { background: var(--text-2); }
 
-.fields button {
-  display: block;
-  width: 100%;
-  height: 100%;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  background: var(--elevated);
-  border: 1px solid transparent;
+.event { background: var(--elevated); border-radius: var(--r-md); padding: var(--sp-md); }
+
+.event-source { display: block; font: 500 12px/16px var(--sans); color: var(--text-2); }
+
+.event-line { display: block; margin-top: var(--sp-sm); font: 400 13px/20px var(--mono); overflow-wrap: anywhere; }
+
+.js .session [data-delay] { transition: opacity 300ms ease-out, transform 300ms ease-out; }
+
+.js .session .pending { opacity: 0; transform: translateY(var(--sp-xs)); }
+
+.strip { border-top: 1px solid var(--border); padding: var(--sp-xl) 0; }
+
+.strip .container { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-md) var(--sp-xxl); }
+
+.strip-label { font: 500 14px/20px var(--sans); color: var(--text-2); }
+
+.strip ul { display: flex; flex-wrap: wrap; gap: var(--sp-md) var(--sp-xl); }
+
+.strip li { font: 700 18px/28px var(--sans); letter-spacing: -0.01em; }
+
+.section { padding: 64px 0; border-top: 1px solid var(--border); }
+
+.section-head { max-width: 720px; }
+
+.section-head h2 { font-size: 32px; line-height: 40px; letter-spacing: -0.02em; }
+
+.section-head p { margin-top: var(--sp-md); font-size: 18px; line-height: 28px; color: var(--text-2); }
+
+.section-head a { color: var(--text); text-underline-offset: 3px; transition: color 150ms; }
+
+.section-head a:hover { color: var(--primary); }
+
+.section-body { margin-top: var(--sp-xxl); }
+
+.compare { display: grid; gap: var(--sp-md); }
+
+.timeline-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
   border-radius: var(--r-md);
-  padding: var(--sp-md);
-  cursor: pointer;
+  padding: var(--sp-lg);
 }
 
-.fields button:hover { border-color: var(--border); }
+.timeline-card h3 { font-size: 18px; line-height: 28px; }
 
-.fields button[aria-pressed="true"] { border-color: var(--primary); }
+.timeline-card h3 + p { margin-top: var(--sp-xs); font-size: 14px; line-height: 20px; color: var(--text-2); }
 
-.fields .fname {
-  display: block;
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+.timeline { margin-top: var(--sp-lg); display: grid; gap: var(--sp-md); }
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: var(--sp-md);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-2);
 }
 
-.fields button[aria-pressed="true"] .fname { color: var(--primary); }
+.timeline time { font: 400 12px/20px var(--mono); }
 
-.fields .fdesc { display: block; margin-top: var(--sp-xs); color: var(--text-2); font-size: var(--fs-sm); }
+.timeline .by-agent { color: var(--text); }
 
-.fields code { background: var(--surface); }
+.timeline .by-agent span::before {
+  content: "Agent";
+  display: inline-block;
+  margin-right: var(--sp-sm);
+  padding: 0 var(--sp-xs);
+  border-radius: var(--r-sm);
+  background: var(--success-soft);
+  color: var(--success);
+  font: 500 12px/20px var(--sans);
+}
+
+.timeline .late { color: var(--text); }
+
+.timeline .late time { color: var(--warning); }
+
+.timeline-foot { margin-top: auto; padding-top: var(--sp-lg); }
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-xs) var(--sp-sm);
+  border-radius: var(--r-sm);
+  font: 500 12px/16px var(--sans);
+}
+
+.status-tag::before { content: ""; width: 6px; height: 6px; border-radius: var(--r-full); background: currentColor; }
+
+.status-warn { color: var(--warning); background: var(--warning-soft); }
+
+.status-ok { color: var(--success); background: var(--success-soft); }
+
+.cases { display: grid; gap: var(--sp-md); }
+
+.case {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: var(--sp-lg);
+}
+
+.case-source { font: 500 12px/16px var(--sans); color: var(--text-2); }
+
+.case h3 { margin-top: var(--sp-sm); font-size: 18px; line-height: 28px; }
+
+.case p { margin-top: var(--sp-sm); font-size: 14px; line-height: 20px; color: var(--text-2); }
+
+.case-foot { margin-top: auto; padding-top: var(--sp-lg); }
 
 .stepper {
-  margin-top: var(--sp-xl);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   max-width: 720px;
@@ -360,15 +431,15 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
   flex-direction: column;
   align-items: center;
   gap: var(--sp-sm);
+  width: 100%;
   padding: 0 var(--sp-xs);
   background: none;
   border: 0;
   border-radius: var(--r-md);
-  font: 500 var(--fs-sm)/1.3 var(--sans);
+  font: 500 14px/20px var(--sans);
   color: var(--text-2);
-  cursor: pointer;
   text-align: center;
-  width: 100%;
+  cursor: pointer;
 }
 
 .step + .step::before {
@@ -388,10 +459,9 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--r-full);
   border: 2px solid var(--border);
-  font-size: var(--fs-sm);
-  font-weight: 700;
+  border-radius: var(--r-full);
+  font: 700 14px/20px var(--sans);
   color: var(--text-2);
 }
 
@@ -403,25 +473,33 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 
 .step.done .num { display: none; }
 
-.step .check { display: none; width: 14px; height: 14px; }
+.check { display: none; width: 14px; height: 14px; }
 
 .step.done .check { display: block; }
 
-.panels { margin-top: var(--sp-lg); }
+.js .stepper + .panels { margin-top: var(--sp-xl); }
 
-.panel { padding: var(--sp-lg); }
+.panel { background: var(--surface); border-radius: var(--r-md); padding: var(--sp-lg); }
 
 .no-js .panel + .panel { margin-top: var(--sp-md); }
 
 .panel > * + * { margin-top: var(--sp-md); }
 
+.panel h3 { font-size: 18px; line-height: 28px; }
+
 .panel p { max-width: 64ch; color: var(--text-2); }
 
-.panel-actions { display: flex; gap: var(--sp-sm); flex-wrap: wrap; }
+.panel-actions { display: flex; flex-wrap: wrap; gap: var(--sp-sm); }
 
-.no-js .panel-actions .next, .no-js [data-copy] { display: none; }
+.no-js .panel-actions .next { display: none; }
 
-.env { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-sm) var(--sp-lg); font-size: var(--fs-sm); }
+.env {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--sp-sm) var(--sp-lg);
+  font-size: 14px;
+  line-height: 20px;
+}
 
 .env dt { font-weight: 500; }
 
@@ -431,243 +509,448 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
   background: var(--elevated);
   border-radius: var(--r-md);
   padding: var(--sp-md);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  overflow: auto;
+  font-size: 13px;
+  line-height: 20px;
   white-space: pre;
+  overflow: auto;
 }
 
 .prompt { max-height: 360px; white-space: pre-wrap; }
 
-.ok { color: var(--success); }
+.field-row { display: flex; gap: var(--sp-sm); }
 
-.bad { color: var(--error); }
-
-.providers {
-  margin-top: var(--sp-xl);
-  columns: 2;
-  column-gap: var(--sp-md);
-}
-
-.provider {
-  padding: var(--sp-lg);
+.cmd {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-lg);
-  break-inside: avoid;
-  margin-bottom: var(--sp-md);
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--sp-md);
+  background: var(--elevated);
+  border-radius: var(--r-lg);
+  font: 400 13px/20px var(--mono);
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
-.provider h3 { font-size: var(--fs-xl); }
+.cmd::before { content: "$"; margin-right: var(--sp-sm); color: var(--text-2); }
 
-.kinds { display: grid; gap: var(--sp-md); font-size: var(--fs-sm); }
+.sub-label { display: block; font: 500 12px/16px var(--sans); color: var(--text-2); }
 
-.kinds dt { display: flex; flex-wrap: wrap; gap: var(--sp-xs) var(--sp-sm); }
+.sub-label + .field-row, .sub-label + .cmd { margin-top: var(--sp-sm); }
 
-.kinds dt code { background: none; padding: 0; font-size: var(--fs-sm); font-weight: 500; }
+.panel .alt { font-size: 14px; line-height: 20px; }
 
-.kinds dd { color: var(--text-2); margin-top: 2px; }
+.features { display: grid; gap: var(--sp-xxl) var(--sp-xl); }
 
-.provider p { font-size: var(--fs-sm); color: var(--text-2); }
+.feature { padding-top: var(--sp-lg); border-top: 1px solid var(--border); }
 
-.provider .cmd {
-  min-height: 40px;
-  padding-top: var(--sp-sm);
-  padding-bottom: var(--sp-sm);
-  font-size: var(--fs-xs);
+.feature h3 { font-size: 18px; line-height: 28px; }
+
+.feature p { margin-top: var(--sp-sm); color: var(--text-2); }
+
+.features-note { margin-top: var(--sp-xxl); font-size: 14px; line-height: 20px; color: var(--text-2); }
+
+.anatomy-card { background: var(--surface); border-radius: var(--r-md); padding: var(--sp-lg); }
+
+.anatomy { font: 400 14px/28px var(--mono); overflow-wrap: anywhere; }
+
+.anatomy span {
+  color: var(--text-2);
+  text-decoration: underline 2px transparent;
+  text-underline-offset: 6px;
+  transition: color 120ms, text-decoration-color 120ms;
+}
+
+.anatomy span.on { color: var(--primary); text-decoration-color: var(--primary); }
+
+.fields { margin-top: var(--sp-lg); display: grid; gap: var(--sp-sm); }
+
+.fields button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: var(--sp-md);
+  background: var(--elevated);
+  border: 1px solid transparent;
   border-radius: var(--r-md);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fields button:hover { border-color: var(--border); }
+
+.fields button[aria-pressed="true"] { border-color: var(--primary); }
+
+.fname { display: block; font: 500 14px/20px var(--mono); }
+
+.fields button[aria-pressed="true"] .fname { color: var(--primary); }
+
+.fdesc { display: block; margin-top: var(--sp-xs); font-size: 14px; line-height: 20px; color: var(--text-2); }
+
+.fields code { background: var(--surface); }
+
+.seg { display: flex; flex-wrap: wrap; gap: var(--sp-sm); }
+
+.no-js .seg { display: none; }
+
+.seg [role="tab"] {
+  height: 40px;
+  padding: 0 var(--sp-md);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  font: 500 14px/20px var(--sans);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 150ms, border-color 150ms;
+}
+
+.seg [role="tab"]:hover { border-color: var(--text-2); }
+
+.seg [role="tab"][aria-selected="true"] { background: var(--primary); border-color: var(--primary); color: var(--inverse); }
+
+.js .seg + .provider-panels { margin-top: var(--sp-lg); }
+
+.provider { background: var(--surface); border-radius: var(--r-md); padding: var(--sp-lg); }
+
+.no-js .provider + .provider { margin-top: var(--sp-md); }
+
+.provider h3 { margin-bottom: var(--sp-lg); font-size: 24px; line-height: 32px; }
+
+.js .provider h3 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.provider-grid { display: grid; gap: var(--sp-xl); }
+
+.kinds { display: grid; gap: var(--sp-lg) var(--sp-xl); align-content: start; font-size: 14px; line-height: 20px; }
+
+.kinds dt { display: flex; flex-wrap: wrap; gap: var(--sp-xs) var(--sp-md); }
+
+.kinds dt code { font: 500 14px/20px var(--mono); }
+
+.kinds dd { margin-top: var(--sp-xs); color: var(--text-2); }
+
+.provider-side { display: grid; gap: var(--sp-lg); align-content: start; }
+
+.provider-side p { margin-top: var(--sp-sm); font-size: 14px; line-height: 20px; color: var(--text-2); }
+
+.filter .cmd {
+  margin-top: var(--sp-sm);
+  height: auto;
+  min-height: 40px;
+  padding-block: var(--sp-sm);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  line-height: 16px;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.provider .filter { margin-top: auto; }
+.filter .cmd::before { content: none; }
 
-.provider .cmd::before { content: none; }
+.providers-note { margin-top: var(--sp-md); font-size: 14px; line-height: 20px; color: var(--text-2); }
 
-.providers-note { margin-top: var(--sp-lg); }
+.faq-grid { display: grid; gap: var(--sp-xl); }
 
-.notes {
-  margin-top: var(--sp-xl);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-xl);
+.faq details { border-bottom: 1px solid var(--border); }
+
+.faq details:first-child { border-top: 1px solid var(--border); }
+
+.faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-md);
+  padding: var(--sp-lg) 0;
+  font: 500 16px/24px var(--sans);
+  list-style: none;
+  cursor: pointer;
 }
 
-.notes p { margin-top: var(--sp-sm); color: var(--text-2); }
+.faq summary::-webkit-details-marker { display: none; }
 
-.foot {
-  border-top: 1px solid var(--border);
-  padding-top: var(--sp-xl);
-  padding-bottom: var(--sp-xxl);
+.faq summary::after {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) center / 16px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) center / 2px 16px no-repeat;
 }
 
-.foot .wrap { display: flex; gap: var(--sp-lg); justify-content: space-between; flex-wrap: wrap; align-items: baseline; }
-
-.foot ul { display: flex; gap: var(--sp-lg); flex-wrap: wrap; font-size: var(--fs-sm); }
-
-@media (min-width: 720px) {
-  .wrap { padding-inline: var(--sp-xl); }
-  .hero { padding-top: calc(var(--sp-xxl) * 2); }
+.faq details[open] summary::after {
+  background: linear-gradient(var(--text-2), var(--text-2)) center / 16px 2px no-repeat;
 }
 
-@media (max-width: 899px) {
-  .providers { columns: 1; }
-  .notes { grid-template-columns: minmax(0, 1fr); }
-}
+.faq details p { padding-bottom: var(--sp-lg); color: var(--text-2); max-width: 640px; }
+
+.cta-band { background: var(--surface); border-radius: var(--r-lg); padding: var(--sp-xl) var(--sp-lg); }
+
+.cta-band h2 { font-size: 32px; line-height: 40px; letter-spacing: -0.02em; }
+
+.cta-band p { margin-top: var(--sp-md); font-size: 18px; line-height: 28px; color: var(--text-2); max-width: 560px; }
+
+.site-footer { border-top: 1px solid var(--border); padding: var(--sp-xxl) 0; }
+
+.footer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-xl); }
+
+.footer-brand { grid-column: 1 / -1; }
+
+.footer-brand p { margin-top: var(--sp-md); font-size: 14px; line-height: 20px; color: var(--text-2); max-width: 320px; }
+
+.footer-title { font: 500 14px/20px var(--sans); }
+
+.footer-col ul { margin-top: var(--sp-md); display: grid; gap: var(--sp-sm); }
+
+.footer-col a { font-size: 14px; line-height: 20px; color: var(--text-2); text-decoration: none; transition: color 150ms; }
+
+.footer-col a:hover { color: var(--text); }
 
 @media (max-width: 639px) {
-  .top nav { display: none; }
-  .top .btn { margin-left: auto; }
-  .fields { grid-template-columns: minmax(0, 1fr); }
+  .header-actions .btn-secondary { display: none; }
+  .cta-row .btn { width: 100%; }
   .field-row { flex-direction: column; }
-  .anatomy-card, .panel, .provider { padding: var(--sp-md); }
-  .anatomy { font-size: var(--fs-sm); }
   .env { grid-template-columns: minmax(0, 1fr); gap: var(--sp-xs); }
   .env dd + dt { margin-top: var(--sp-sm); }
+  .panel, .anatomy-card, .provider { padding: var(--sp-md); }
+}
+
+@media (min-width: 640px) {
+  .cases { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .footer-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .footer-brand { grid-column: auto; }
+}
+
+@media (min-width: 768px) {
+  .container { padding-inline: var(--sp-xl); }
+  .hero { padding: 96px 0; }
+  .hero h1 { font-size: 56px; line-height: 64px; }
+  .section { padding: 96px 0; }
+  .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .timeline-card { padding: var(--sp-xl); }
+  .kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cta-band { padding: 64px; }
+  .cta-band h2 { font-size: 40px; line-height: 48px; }
+}
+
+@media (min-width: 1200px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 544px); gap: 64px; }
+}
+
+@media (min-width: 1024px) {
+  .cases { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .provider-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: var(--sp-xxl); }
+  .faq-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 64px; }
+}
+
+@media (max-width: 1023px) {
+  .nav { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .events li, .anatomy span { transition: none; }
+  html { scroll-behavior: auto; }
+  .js .session [data-delay], .anatomy span, .btn, .nav a, .footer-col a, .seg [role="tab"] { transition: none; }
 }
 </style>
 </head>
 <body class="no-js">
 <script>document.body.classList.replace("no-js", "js");</script>
 
-<header class="wrap top">
-  <a class="brand" href="./">hark</a>
-  <nav aria-label="Sections">
-    <a href="#line">Read a line</a>
-    <a href="#setup">Set up</a>
-    <a href="#providers">Providers</a>
-  </nav>
-  <a class="btn btn-secondary btn-small" href="https://github.com/dukex/hark">GitHub</a>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#F2C94C"/><path fill="#000" d="M7 5h2.5v5.6c.8-1 2-1.6 3.5-1.6 2.6 0 4 1.6 4 4.4V19h-2.5v-5.3c0-1.6-.7-2.4-2-2.4-1.6 0-3 1.1-3 3.1V19H7z"/></svg>
+      hark
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#use-cases">Use cases</a>
+      <a href="#providers">Services</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-secondary btn-sm" href="https://github.com/dukex/hark">GitHub</a>
+      <a class="btn btn-primary btn-sm" href="#start">Get started</a>
+    </div>
+  </div>
 </header>
 
 <main>
   <section class="hero" aria-labelledby="title">
-    <div class="wrap">
-      <h1 id="title">Your Datadog, GitHub, Jira, Slack and Todoist activity, one line per event</h1>
-      <p class="lead">hark watches your accounts and prints every comment, review, merge, failed build, mention, monitor alert and due task as a single line. Run it as a Claude Code monitor and your agent tells you what changed while you keep working.</p>
-
-      <div class="install">
-        <span class="label">Install on Linux or macOS</span>
-        <div class="field-row">
-          <code class="cmd" id="install-cmd" tabindex="0">curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh</code>
-          <button class="btn btn-primary" type="button" data-copy="install-cmd">Copy</button>
+    <div class="container hero-grid">
+      <div>
+        <h1 id="title">Keep your coding agent in the loop</h1>
+        <p class="lead">hark connects Claude Code to GitHub, Slack, Jira, Datadog and Todoist. When a reviewer asks for changes, CI breaks, a teammate pings you or an alert fires, your agent hears about it, tells you what it means and offers to handle it.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button" data-copy="prompt">Copy the setup prompt</button>
+          <a class="btn btn-primary nojs-only" href="#start">Get started</a>
+          <a class="btn btn-secondary" href="https://github.com/dukex/hark">View on GitHub</a>
         </div>
-        <p class="alt muted small">Or with Go: <code>go install github.com/dukex/hark/cmd/hark@latest</code></p>
+        <p class="cta-note">Paste it into Claude Code. Your agent installs hark, checks your accounts and starts listening. Free, for Linux and macOS.</p>
       </div>
 
-      <div class="stream surface" role="figure" aria-label="Example output from five hark monitors">
-        <div class="stream-head">
-          <span class="tag">hark datadog</span>
-          <span class="tag">hark github</span>
-          <span class="tag">hark jira</span>
-          <span class="tag">hark slack</span>
-          <span class="tag">hark todoist</span>
-          <span class="live">Live</span>
+      <figure class="session" aria-label="Example of an agent session with hark running">
+        <div class="session-bar" aria-hidden="true">
+          <span>~/code/checkout</span>
+          <span class="session-status">Monitors running</span>
         </div>
-        <ol class="events">
-          <li><span class="ev-t">2026-11-23T10:05:00Z</span> <span class="ev-p">github</span> <span class="ev-k">issue.commented</span> dukex/foo#3 @alice "works here" <span class="ev-u">https://github.com/dukex/foo/issues/3#issuecomment-9</span></li>
-          <li><span class="ev-t">2026-11-23T10:08:00Z</span> <span class="ev-p">github</span> <span class="ev-k ok">pr.merged</span> dukex/foo#12 @bob <span class="ev-u">https://github.com/dukex/foo/pull/12</span></li>
-          <li><span class="ev-t">2026-11-23T10:10:00Z</span> <span class="ev-p">github</span> <span class="ev-k">pr.commented</span> acme/lib#40 @frank <span class="ev-w">watching</span> "rebase?" <span class="ev-u">https://github.com/acme/lib/pull/40#issuecomment-70</span></li>
-          <li><span class="ev-t">2026-11-23T10:12:00Z</span> <span class="ev-p">github</span> <span class="ev-k bad">ci.failed</span> acme/api "CI workflow run failed for main branch"</li>
-          <li><span class="ev-t">2026-11-23T10:14:00Z</span> <span class="ev-p">github</span> <span class="ev-k warn">pr.changes_requested</span> dukex/foo#15 @carol "move the migration to its own PR (2 inline comments)" <span class="ev-u">https://github.com/dukex/foo/pull/15#pullrequestreview-31</span></li>
-          <li><span class="ev-t">2026-11-23T10:15:00Z</span> <span class="ev-p">jira</span> <span class="ev-k">jira.transitioned</span> PROJ-7 "Checkout: To Do to Done (Ana)" <span class="ev-u">https://example.atlassian.net/browse/PROJ-7</span></li>
-          <li><span class="ev-t">2026-11-23T10:17:00Z</span> <span class="ev-p">slack</span> <span class="ev-k warn">slack.mentioned</span> #deploys @ana "&lt;@U012AB&gt; can you look?" <span class="ev-u">https://example.slack.com/archives/C01/p1732356300000100</span></li>
-          <li><span class="ev-t">2026-11-23T10:18:00Z</span> <span class="ev-p">jira</span> <span class="ev-k warn">jira.mentioned</span> PROJ-9 "Ana: can you check the refund copy before Friday?" <span class="ev-u">https://example.atlassian.net/browse/PROJ-9</span></li>
-          <li><span class="ev-t">2026-11-23T10:19:00Z</span> <span class="ev-p">datadog</span> <span class="ev-k bad">datadog.alert</span> "[Triggered on {host:web-1}] CPU is high" <span class="ev-u">https://app.datadoghq.com/monitors/42</span></li>
-          <li><span class="ev-t">2026-11-23T10:20:00Z</span> <span class="ev-p">todoist</span> <span class="ev-k ok">task.completed</span> "Pay the power bill" <span class="ev-u">https://app.todoist.com/app/task/6X7rM8</span></li>
-        </ol>
-      </div>
-      <p class="stream-note muted small">Silence means no news: hark checks every minute and prints nothing while nothing happens.</p>
+        <div class="session-body">
+          <p class="msg msg-user">Move the refund flow to the new payments client</p>
+          <p class="msg msg-work">Editing refund.go and refund_test.go</p>
+          <p class="event" data-delay="900"><span class="event-source">hark github</span><span class="event-line"><span class="warn">pr.changes_requested</span> acme/checkout#15 @carol "move the migration to its own PR (2 inline comments)"</span></p>
+          <p class="msg" data-delay="1800">Carol requested changes on #15. She wants the migration in its own PR, and her two inline comments ask to rename the index. I can move it to a new branch and open that PR. Want me to?</p>
+          <p class="event" data-delay="3200"><span class="event-source">hark datadog</span><span class="event-line"><span class="bad">datadog.alert</span> "[Triggered on {service:checkout}] p95 latency above 800ms"</span></p>
+          <p class="msg" data-delay="4100">The checkout latency alert just fired. I'll finish the refund change unless you want me to look at the alert first.</p>
+        </div>
+      </figure>
     </div>
   </section>
 
-  <section class="section" id="line" aria-labelledby="line-title">
-    <div class="wrap">
-      <h2 id="line-title">One event, one line</h2>
-      <p class="intro">Fields are separated by one space and empty ones are left out. Select a field to find it in the line.</p>
+  <section class="strip" aria-label="Services hark connects to">
+    <div class="container">
+      <p class="strip-label">Your agent hears from</p>
+      <ul>
+        <li>GitHub</li>
+        <li>Slack</li>
+        <li>Jira</li>
+        <li>Datadog</li>
+        <li>Todoist</li>
+      </ul>
+    </div>
+  </section>
 
-      <div class="anatomy-card surface">
-        <p class="anatomy"><span data-f="time">2026-11-23T10:10:00Z</span> <span data-f="provider">github</span> <span data-f="kind" class="on">pr.commented</span> <span data-f="ref">acme/lib#40</span> <span data-f="actor">@frank</span> <span data-f="watching">watching</span> <span data-f="text">"rebase?"</span> <span data-f="url">https://github.com/acme/lib/pull/40#issuecomment-70</span></p>
-
-        <ul class="fields">
-          <li><button type="button" data-field="time" aria-pressed="false"><span class="fname">TIME</span><span class="fdesc">When it happened, in UTC. Pass it to <code>--since</code> to pick up where a stopped monitor left off.</span></button></li>
-          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">datadog, github, jira, slack or todoist. You run one hark per provider.</span></button></li>
-          <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>slack.dm</code> or <code>task.due</code>.</span></button></li>
-          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira key, or the Slack <code>#channel</code>. Slack DMs, Todoist and Datadog lines have none.</span></button></li>
-          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login or Slack username of who did it. Jira puts the name inside the text.</span></button></li>
-          <li><button type="button" data-field="watching" aria-pressed="false"><span class="fname">watching</span><span class="fdesc">Someone else opened this thread and you follow it. Without it, the issue or PR is yours.</span></button></li>
-          <li><button type="button" data-field="text" aria-pressed="false"><span class="fname">"TEXT"</span><span class="fdesc">The comment, review or title on one line, cut at 140 characters.</span></button></li>
-          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR, message, task or monitor.</span></button></li>
-        </ul>
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="container">
+      <div class="section-head">
+        <h2 id="how-title">MCP lets your agent ask. hark lets it hear.</h2>
+        <p>Tools and MCP servers answer when your agent calls them, so it learns about a review only if it thinks to look. hark runs as a background monitor instead: each new event reaches the agent on its own, about a minute after it happens, and the agent works out what it means for you.</p>
+      </div>
+      <div class="section-body compare">
+        <article class="timeline-card" aria-labelledby="without-title">
+          <h3 id="without-title">Without hark</h3>
+          <p>You find out when you go and look.</p>
+          <ol class="timeline">
+            <li><time>10:05</time><span>Carol requests changes on #15</span></li>
+            <li><time>10:12</time><span>CI fails on main</span></li>
+            <li><time>10:31</time><span>Ana asks for you in #deploys</span></li>
+            <li class="late"><time>11:40</time><span>You check GitHub and Slack and find all three</span></li>
+          </ol>
+          <div class="timeline-foot"><span class="status-tag status-warn">Noticed up to 95 minutes later</span></div>
+        </article>
+        <article class="timeline-card" aria-labelledby="with-title">
+          <h3 id="with-title">With hark</h3>
+          <p>Your agent tells you as it happens.</p>
+          <ol class="timeline">
+            <li><time>10:05</time><span>Carol requests changes on #15</span></li>
+            <li class="by-agent"><time>10:06</time><span>Explains what the review asks for</span></li>
+            <li><time>10:12</time><span>CI fails on main</span></li>
+            <li class="by-agent"><time>10:13</time><span>Names the failing job and offers to read the logs</span></li>
+            <li><time>10:31</time><span>Ana asks for you in #deploys</span></li>
+            <li class="by-agent"><time>10:32</time><span>Tells you what she needs</span></li>
+          </ol>
+          <div class="timeline-foot"><span class="status-tag status-ok">Each one reaches you in about a minute</span></div>
+        </article>
       </div>
     </div>
   </section>
 
-  <section class="section" id="setup" aria-labelledby="setup-title">
-    <div class="wrap">
-      <h2 id="setup-title">Hand it to your agent</h2>
-      <p class="intro">Three steps in a Claude Code session. Any agent that can keep a command running in the background works too.</p>
+  <section class="section" id="use-cases" aria-labelledby="cases-title">
+    <div class="container">
+      <div class="section-head">
+        <h2 id="cases-title">What your agent does with each event</h2>
+        <p>One prompt tells the agent what each kind of event means for you. These are its defaults, and editing the prompt changes them.</p>
+      </div>
+      <ul class="section-body cases">
+        <li class="case">
+          <span class="case-source">GitHub</span>
+          <h3>Acts on review feedback</h3>
+          <p>Reads the review and its inline comments and tells you what the reviewer asks for, so you can decide what to change.</p>
+          <div class="case-foot"><code class="kind"><span class="warn">pr.changes_requested</span></code></div>
+        </li>
+        <li class="case">
+          <span class="case-source">GitHub</span>
+          <h3>Catches broken builds</h3>
+          <p>Names the workflow and the branch that failed, and offers to read the logs.</p>
+          <div class="case-foot"><code class="kind"><span class="bad">ci.failed</span></code></div>
+        </li>
+        <li class="case">
+          <span class="case-source">Slack</span>
+          <h3>Relays mentions and DMs</h3>
+          <p>Tells you who wrote, where and what they ask for. It never answers in Slack for you.</p>
+          <div class="case-foot"><code class="kind"><span class="warn">slack.mentioned</span></code></div>
+        </li>
+        <li class="case">
+          <span class="case-source">Datadog</span>
+          <h3>Flags alerts on what you own</h3>
+          <p>Reports monitors that go into Alert or No Data on your services, and tells you when they recover.</p>
+          <div class="case-foot"><code class="kind"><span class="bad">datadog.alert</span></code></div>
+        </li>
+        <li class="case">
+          <span class="case-source">Jira</span>
+          <h3>Brings in new work</h3>
+          <p>Tells you right away when an issue is assigned to you or a comment mentions you.</p>
+          <div class="case-foot"><code class="kind"><span class="warn">jira.assigned</span></code></div>
+        </li>
+        <li class="case">
+          <span class="case-source">Todoist</span>
+          <h3>Reminds you what is due</h3>
+          <p>Mentions each task due today, once, so nothing slips while you are heads down.</p>
+          <div class="case-foot"><code class="kind">task.due</code></div>
+        </li>
+      </ul>
+    </div>
+  </section>
 
-      <div class="stepper" role="tablist" aria-label="Setup steps">
-        <button class="step" type="button" role="tab" id="tab-1" aria-controls="step-1" aria-selected="true"><span class="dot" aria-hidden="true"><span class="num">1</span><svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Install</button>
-        <button class="step" type="button" role="tab" id="tab-2" aria-controls="step-2" aria-selected="false" tabindex="-1"><span class="dot" aria-hidden="true"><span class="num">2</span><svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Check your accounts</button>
-        <button class="step" type="button" role="tab" id="tab-3" aria-controls="step-3" aria-selected="false" tabindex="-1"><span class="dot" aria-hidden="true"><span class="num">3</span><svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Start the monitors</button>
+  <section class="section" id="start" aria-labelledby="start-title">
+    <div class="container">
+      <div class="section-head">
+        <h2 id="start-title">Set up with one prompt</h2>
+        <p>Claude Code does the installing. You give it access to your accounts and paste the prompt. Any agent that can keep a command running in the background works too.</p>
       </div>
 
-      <div class="panels">
-        <section class="panel surface" role="tabpanel" id="step-1" aria-labelledby="tab-1">
-          <h3>Install hark</h3>
-          <div class="field-row">
-            <code class="cmd" id="install-cmd-2" tabindex="0">curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh</code>
-            <button class="btn btn-primary" type="button" data-copy="install-cmd-2">Copy</button>
-          </div>
-          <p>The script downloads the latest release for your OS and architecture, checks it against <code>checksums.txt</code> and installs it to <code>~/.local/bin</code>. From then on, hark updates itself every time it starts.</p>
-          <div class="panel-actions"><button class="btn btn-secondary next" type="button" data-goto="1">Next: check your accounts</button></div>
-        </section>
+      <div class="section-body">
+        <div class="stepper" role="tablist" aria-label="Setup steps">
+          <button class="step" type="button" role="tab" id="tab-1" aria-controls="step-1" aria-selected="true"><span class="dot" aria-hidden="true"><span class="num">1</span><svg class="check" viewBox="0 0 14 14"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Connect accounts</button>
+          <button class="step" type="button" role="tab" id="tab-2" aria-controls="step-2" aria-selected="false" tabindex="-1"><span class="dot" aria-hidden="true"><span class="num">2</span><svg class="check" viewBox="0 0 14 14"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Paste the prompt</button>
+          <button class="step" type="button" role="tab" id="tab-3" aria-controls="step-3" aria-selected="false" tabindex="-1"><span class="dot" aria-hidden="true"><span class="num">3</span><svg class="check" viewBox="0 0 14 14"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Start listening</button>
+        </div>
 
-        <section class="panel surface" role="tabpanel" id="step-2" aria-labelledby="tab-2">
-          <h3>Check your accounts</h3>
-          <p>Set a token for each provider you use, then run <code>hark doctor</code>. It checks every provider and tells you what failed. Providers you don't set up are listed and skipped.</p>
-          <dl class="env">
-            <dt>Datadog</dt>
-            <dd><code>DD_API_KEY</code> and <code>DD_APP_KEY</code>, plus <code>DD_SITE</code> if your site is not datadoghq.com</dd>
-            <dt>GitHub</dt>
-            <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
-            <dt>Jira</dt>
-            <dd><code>JIRA_URL</code>, <code>JIRA_EMAIL</code> and <code>JIRA_API_TOKEN</code></dd>
-            <dt>Slack</dt>
-            <dd><code>SLACK_TOKEN</code>, the user token of a Slack app you create with the <code>search:read</code> user scope</dd>
-            <dt>Todoist</dt>
-            <dd><code>TODOIST_API_TOKEN</code></dd>
-          </dl>
-          <pre class="code" tabindex="0" role="region" aria-label="Example output of hark doctor"><span class="muted">$</span> hark doctor
-hark 0.8.0
-datadog
-  <span class="muted">- not configured: set DD_API_KEY, DD_APP_KEY</span>
-github
-  <span class="ok">✓</span> token: logged in as you
-  <span class="ok">✓</span> notifications: readable
-jira
-  <span class="muted">- not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN</span>
-slack
-  <span class="ok">✓</span> token: logged in as you on acme
-  <span class="ok">✓</span> search: 4 mentions and 12 DMs in the last 7 days
-  <span class="ok">✓</span> state: /home/you/.local/state/hark/slack.json
-todoist
-  <span class="ok">✓</span> token: valid
-  <span class="bad">✗</span> activity log: GET /api/v1/activities: 403 Forbidden
-  <span class="ok">✓</span> state: /home/you/.local/state/hark/todoist.json</pre>
-          <div class="panel-actions"><button class="btn btn-secondary next" type="button" data-goto="2">Next: start the monitors</button></div>
-        </section>
+        <div class="panels">
+          <section class="panel" role="tabpanel" id="step-1" aria-labelledby="tab-1">
+            <h3>Connect your accounts</h3>
+            <p>Export a token for each service you use in your shell profile, so Claude Code starts with them. GitHub needs nothing more if you are logged in with <code>gh</code>.</p>
+            <dl class="env">
+              <dt>GitHub</dt>
+              <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
+              <dt>Slack</dt>
+              <dd><code>SLACK_TOKEN</code>, the user token of a Slack app you create with the <code>search:read</code> user scope</dd>
+              <dt>Jira</dt>
+              <dd><code>JIRA_URL</code>, <code>JIRA_EMAIL</code> and <code>JIRA_API_TOKEN</code></dd>
+              <dt>Datadog</dt>
+              <dd><code>DD_API_KEY</code> and <code>DD_APP_KEY</code>, plus <code>DD_SITE</code> if your site is not datadoghq.com</dd>
+              <dt>Todoist</dt>
+              <dd><code>TODOIST_API_TOKEN</code></dd>
+            </dl>
+            <div class="panel-actions"><button class="btn btn-secondary next" type="button" data-goto="1">Next: paste the prompt</button></div>
+          </section>
 
-        <section class="panel surface" role="tabpanel" id="step-3" aria-labelledby="tab-3">
-          <h3>Start the monitors</h3>
-          <p>Paste this prompt into the session. The agent starts one monitor per working provider, restarts them without losing events, tells you what each line asks of you, and asks before it replies, reacts, closes or changes anything.</p>
-          <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Prompt for Claude Code">Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
+          <section class="panel" role="tabpanel" id="step-2" aria-labelledby="tab-2">
+            <h3>Paste the prompt into Claude Code</h3>
+            <p>It tells the agent how to install and run hark, what to do with each kind of event, and to ask you before it replies, reacts, closes, mutes or changes anything.</p>
+            <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Setup prompt for Claude Code">Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -731,126 +1014,325 @@ todoist
    pass `--filter` with the provider's own syntax (see the hark README).
 5. Never reply, react, close, mute or change anything on GitHub, Jira, Slack,
    Todoist or Datadog without asking me first.</pre>
-          <div class="panel-actions"><button class="btn btn-primary" type="button" data-copy="prompt">Copy prompt</button></div>
-        </section>
+            <div class="panel-actions">
+              <button class="btn btn-primary" type="button" data-copy="prompt">Copy prompt</button>
+              <button class="btn btn-secondary next" type="button" data-goto="2">Next: start listening</button>
+            </div>
+          </section>
+
+          <section class="panel" role="tabpanel" id="step-3" aria-labelledby="tab-3">
+            <h3>Your agent starts listening</h3>
+            <p>It installs hark if it is missing and runs <code>hark doctor</code> to see which accounts work. Then it starts one monitor per working service and restarts them without losing events.</p>
+            <pre class="code" tabindex="0" role="region" aria-label="Example output of hark doctor"><span class="muted">$</span> hark doctor
+hark 0.8.0
+datadog
+  <span class="muted">- not configured: set DD_API_KEY, DD_APP_KEY</span>
+github
+  <span class="ok">✓</span> token: logged in as you
+  <span class="ok">✓</span> notifications: readable
+jira
+  <span class="muted">- not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN</span>
+slack
+  <span class="ok">✓</span> token: logged in as you on acme
+  <span class="ok">✓</span> search: 4 mentions and 12 DMs in the last 7 days
+  <span class="ok">✓</span> state: /home/you/.local/state/hark/slack.json
+todoist
+  <span class="ok">✓</span> token: valid
+  <span class="bad">✗</span> activity log: GET /api/v1/activities: 403 Forbidden
+  <span class="ok">✓</span> state: /home/you/.local/state/hark/todoist.json</pre>
+            <div>
+              <span class="sub-label">Prefer to install hark yourself?</span>
+              <div class="field-row">
+                <code class="cmd" id="install-cmd" tabindex="0">curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh</code>
+                <button class="btn btn-secondary" type="button" data-copy="install-cmd">Copy</button>
+              </div>
+            </div>
+            <p class="alt">Or with Go: <code>go install github.com/dukex/hark/cmd/hark@latest</code></p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="safety" aria-labelledby="safety-title">
+    <div class="container">
+      <div class="section-head">
+        <h2 id="safety-title">Safe to leave running all day</h2>
+        <p>hark reads and reports. Your agent asks before it acts.</p>
+      </div>
+      <ul class="section-body features">
+        <li class="feature">
+          <h3>Asks before it acts</h3>
+          <p>The prompt tells your agent never to reply, react, close, mute or change anything in your accounts without asking you first.</p>
+        </li>
+        <li class="feature">
+          <h3>Reads, with one exception</h3>
+          <p>hark only reads your accounts. It marks the GitHub notifications it reports as read, so none reaches your agent twice.</p>
+        </li>
+        <li class="feature">
+          <h3>Nothing to host</h3>
+          <p>No server, no webhooks, no sign-up. hark runs on your machine with your tokens and talks only to the services you connect, and to GitHub to update itself.</p>
+        </li>
+        <li class="feature">
+          <h3>Restarts lose nothing</h3>
+          <p>Every service except GitHub continues from a saved cursor. GitHub continues from the time your agent passes to <code>--since</code>.</p>
+        </li>
+        <li class="feature">
+          <h3>Hears only what you own</h3>
+          <p>Narrow each service in its own syntax, from GitHub search qualifiers to JQL, so your agent hears about your work and nobody else's.</p>
+        </li>
+        <li class="feature">
+          <h3>Updates itself</h3>
+          <p>On every start hark checks for a newer release, verifies its checksum and restarts on it. Set <code>HARK_NO_UPDATE=1</code> to turn that off.</p>
+        </li>
+      </ul>
+      <p class="features-note">Every pull request to hark runs its tests with a 100% coverage check, golangci-lint and shellcheck.</p>
+    </div>
+  </section>
+
+  <section class="section" id="line" aria-labelledby="line-title">
+    <div class="container">
+      <div class="section-head">
+        <h2 id="line-title">One line per event, written for agents</h2>
+        <p>Under the hood, hark prints each event as one line with fixed fields, and <code>hark help</code> explains every line to the agent. Select a field to find it in the line.</p>
+      </div>
+
+      <div class="section-body anatomy-card">
+        <p class="anatomy"><span data-f="time">2026-11-23T10:10:00Z</span> <span data-f="provider">github</span> <span data-f="kind" class="on">pr.commented</span> <span data-f="ref">acme/lib#40</span> <span data-f="actor">@frank</span> <span data-f="watching">watching</span> <span data-f="text">"rebase?"</span> <span data-f="url">https://github.com/acme/lib/pull/40#issuecomment-70</span></p>
+
+        <ul class="fields">
+          <li><button type="button" data-field="time" aria-pressed="false"><span class="fname">TIME</span><span class="fdesc">When it happened, in UTC. Pass it to <code>--since</code> to pick up where a stopped monitor left off.</span></button></li>
+          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">datadog, github, jira, slack or todoist. You run one hark per provider.</span></button></li>
+          <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>slack.dm</code> or <code>task.due</code>.</span></button></li>
+          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira key, or the Slack <code>#channel</code>. Slack DMs, Todoist and Datadog lines have none.</span></button></li>
+          <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login or Slack username of who did it. Jira puts the name inside the text.</span></button></li>
+          <li><button type="button" data-field="watching" aria-pressed="false"><span class="fname">watching</span><span class="fdesc">Someone else opened this thread and you follow it. Without it, the issue or PR is yours.</span></button></li>
+          <li><button type="button" data-field="text" aria-pressed="false"><span class="fname">"TEXT"</span><span class="fdesc">The comment, review or title on one line, cut at 140 characters.</span></button></li>
+          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR, message, task or monitor.</span></button></li>
+        </ul>
       </div>
     </div>
   </section>
 
   <section class="section" id="providers" aria-labelledby="providers-title">
-    <div class="wrap">
-      <h2 id="providers-title">What each provider reports</h2>
-      <p class="intro">Run one hark per provider. Each one checks every minute and prints only what is new since its last line.</p>
-
-      <div class="providers">
-        <article class="provider surface" aria-labelledby="p-github">
-          <h3 id="p-github">GitHub</h3>
-          <dl class="kinds">
-            <div><dt><code>issue.commented</code><code>pr.commented</code></dt><dd>Someone comments on your issue or PR, or one you watch.</dd></div>
-            <div><dt><code>pr.reviewed</code><code>pr.approved</code><code>pr.changes_requested</code></dt><dd>Someone reviews a PR, with the review and how many inline comments it has.</dd></div>
-            <div><dt><code>issue.closed</code><code>pr.closed</code><code>pr.merged</code><code>pr.opened</code></dt><dd>Someone, or you, opens, closes or merges.</dd></div>
-            <div><dt><code>ci.failed</code><code>ci.succeeded</code><code>ci.cancelled</code><code>ci.skipped</code></dt><dd>A workflow run you get notified about finished.</dd></div>
-            <div><dt><code>ci.approval_requested</code></dt><dd>A deploy is waiting for your approval.</dd></div>
-            <div><dt><code>issue.updated</code><code>pr.updated</code></dt><dd>Anything else, with GitHub's reason, like <code>review_requested</code>.</dd></div>
-          </dl>
-          <p>Marks each notification as read once it prints it, so nothing comes twice. After more than an hour off, pass the last line's time to <code>--since</code>.</p>
-          <div class="filter">
-            <span class="label">Watch less, with notification search qualifiers</span>
-            <code class="cmd">--filter 'org:acme -is:ci'</code>
-          </div>
-        </article>
-
-        <article class="provider surface" aria-labelledby="p-jira">
-          <h3 id="p-jira">Jira</h3>
-          <dl class="kinds">
-            <div><dt><code>jira.commented</code></dt><dd>Someone comments on an issue you are assigned to, reported or watch.</dd></div>
-            <div><dt><code>jira.mentioned</code></dt><dd>A comment @mentions you.</dd></div>
-            <div><dt><code>jira.transitioned</code></dt><dd>The status changes, like <code>To Do to Done</code>.</dd></div>
-            <div><dt><code>jira.assigned</code></dt><dd>Someone assigns the issue to you.</dd></div>
-          </dl>
-          <p>Skips your own actions and saves its place in <code>~/.local/state/hark</code>, so a restart continues where it stopped.</p>
-          <div class="filter">
-            <span class="label">Watch less, with JQL</span>
-            <code class="cmd">--filter 'project = PROJ AND priority = High'</code>
-          </div>
-        </article>
-
-        <article class="provider surface" aria-labelledby="p-slack">
-          <h3 id="p-slack">Slack</h3>
-          <dl class="kinds">
-            <div><dt><code>slack.mentioned</code></dt><dd>Someone @mentions you, in a channel or a DM.</dd></div>
-            <div><dt><code>slack.dm</code></dt><dd>Someone writes to you in a DM or group DM.</dd></div>
-          </dl>
-          <p>Finds them with Slack search, so a message shows up once Slack indexes it, usually within a minute. Skips your own messages and saves its place like Jira does.</p>
-          <div class="filter">
-            <span class="label">Watch less, with Slack search modifiers</span>
-            <code class="cmd">--filter '-in:#random -in:#alerts'</code>
-          </div>
-        </article>
-
-        <article class="provider surface" aria-labelledby="p-todoist">
-          <h3 id="p-todoist">Todoist</h3>
-          <dl class="kinds">
-            <div><dt><code>task.created</code><code>task.completed</code></dt><dd>A task is added or completed, by you or a collaborator.</dd></div>
-            <div><dt><code>task.rescheduled</code></dt><dd>A due date changes, with the new date.</dd></div>
-            <div><dt><code>task.commented</code></dt><dd>Someone comments on a task.</dd></div>
-            <div><dt><code>task.due</code></dt><dd>Once a day, for each task due today.</dd></div>
-          </dl>
-          <p>Reads the activity log, so your plan needs activity history. Saves its place like Jira does.</p>
-          <div class="filter">
-            <span class="label">Watch less, with a Todoist filter</span>
-            <code class="cmd">--filter '#Work &amp; p1'</code>
-          </div>
-        </article>
-
-        <article class="provider surface" aria-labelledby="p-datadog">
-          <h3 id="p-datadog">Datadog</h3>
-          <dl class="kinds">
-            <div><dt><code>datadog.alert</code></dt><dd>A monitor, or one group of a multi alert monitor, goes into Alert.</dd></div>
-            <div><dt><code>datadog.warn</code> <code>datadog.no_data</code></dt><dd>It goes into Warn or No Data.</dd></div>
-            <div><dt><code>datadog.recovered</code></dt><dd>It goes back to OK.</dd></div>
-          </dl>
-          <p>Reads the monitor alert events of the whole organization, so filter it down to what you own. Skips re-notifications and saves its place like Jira does.</p>
-          <div class="filter">
-            <span class="label">Watch less, with Datadog event search</span>
-            <code class="cmd">--filter 'team:payments -env:staging'</code>
-          </div>
-        </article>
+    <div class="container">
+      <div class="section-head">
+        <h2 id="providers-title">One monitor per service</h2>
+        <p>Run one hark per service. Each checks every minute and reports only what is new since its last line.</p>
       </div>
-      <p class="providers-note muted small">Every provider also prints an <code>error</code> line when a request fails, once, and keeps checking.</p>
+
+      <div class="section-body">
+        <div class="seg" role="tablist" aria-label="Services">
+          <button type="button" role="tab" id="ptab-github" aria-controls="p-github" aria-selected="true">GitHub</button>
+          <button type="button" role="tab" id="ptab-slack" aria-controls="p-slack" aria-selected="false" tabindex="-1">Slack</button>
+          <button type="button" role="tab" id="ptab-jira" aria-controls="p-jira" aria-selected="false" tabindex="-1">Jira</button>
+          <button type="button" role="tab" id="ptab-datadog" aria-controls="p-datadog" aria-selected="false" tabindex="-1">Datadog</button>
+          <button type="button" role="tab" id="ptab-todoist" aria-controls="p-todoist" aria-selected="false" tabindex="-1">Todoist</button>
+        </div>
+        <div class="provider-panels">
+          <article class="provider" role="tabpanel" id="p-github" aria-labelledby="ptab-github">
+            <h3>GitHub</h3>
+            <div class="provider-grid">
+              <dl class="kinds">
+                <div><dt><code>issue.commented</code><code>pr.commented</code></dt><dd>Someone comments on your issue or PR, or one you watch.</dd></div>
+                <div><dt><code>pr.reviewed</code><code>pr.approved</code><code>pr.changes_requested</code></dt><dd>Someone reviews a PR, with the review and how many inline comments it has.</dd></div>
+                <div><dt><code>issue.closed</code><code>pr.closed</code><code>pr.merged</code><code>pr.opened</code></dt><dd>Someone, or you, opens, closes or merges.</dd></div>
+                <div><dt><code>ci.failed</code><code>ci.succeeded</code><code>ci.cancelled</code><code>ci.skipped</code></dt><dd>A workflow run you get notified about finished.</dd></div>
+                <div><dt><code>ci.approval_requested</code></dt><dd>A deploy is waiting for your approval.</dd></div>
+                <div><dt><code>issue.updated</code><code>pr.updated</code></dt><dd>Anything else, with GitHub's reason, like <code>review_requested</code>.</dd></div>
+              </dl>
+              <div class="provider-side">
+                <div>
+                  <span class="sub-label">Good to know</span>
+                  <p>Marks each notification as read once it prints it, so nothing comes twice. After more than an hour off, pass the last line's time to <code>--since</code>.</p>
+                </div>
+                <div class="filter">
+                  <span class="sub-label">Watch less, with notification search qualifiers</span>
+                  <code class="cmd">--filter 'org:acme -is:ci'</code>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="provider" role="tabpanel" id="p-slack" aria-labelledby="ptab-slack">
+            <h3>Slack</h3>
+            <div class="provider-grid">
+              <dl class="kinds">
+                <div><dt><code>slack.mentioned</code></dt><dd>Someone @mentions you, in a channel or a DM.</dd></div>
+                <div><dt><code>slack.dm</code></dt><dd>Someone writes to you in a DM or group DM.</dd></div>
+              </dl>
+              <div class="provider-side">
+                <div>
+                  <span class="sub-label">Good to know</span>
+                  <p>Finds messages with Slack search, so one shows up once Slack indexes it, usually within a minute. Skips your own messages and continues from a saved cursor.</p>
+                </div>
+                <div class="filter">
+                  <span class="sub-label">Watch less, with Slack search modifiers</span>
+                  <code class="cmd">--filter '-in:#random -in:#alerts'</code>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="provider" role="tabpanel" id="p-jira" aria-labelledby="ptab-jira">
+            <h3>Jira</h3>
+            <div class="provider-grid">
+              <dl class="kinds">
+                <div><dt><code>jira.commented</code></dt><dd>Someone comments on an issue you are assigned to, reported or watch.</dd></div>
+                <div><dt><code>jira.mentioned</code></dt><dd>A comment @mentions you.</dd></div>
+                <div><dt><code>jira.transitioned</code></dt><dd>The status changes, like <code>To Do to Done</code>.</dd></div>
+                <div><dt><code>jira.assigned</code></dt><dd>Someone assigns the issue to you.</dd></div>
+              </dl>
+              <div class="provider-side">
+                <div>
+                  <span class="sub-label">Good to know</span>
+                  <p>Skips your own actions and continues from a cursor saved in <code>~/.local/state/hark</code>.</p>
+                </div>
+                <div class="filter">
+                  <span class="sub-label">Watch less, with JQL</span>
+                  <code class="cmd">--filter 'project = PROJ AND priority = High'</code>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="provider" role="tabpanel" id="p-datadog" aria-labelledby="ptab-datadog">
+            <h3>Datadog</h3>
+            <div class="provider-grid">
+              <dl class="kinds">
+                <div><dt><code>datadog.alert</code></dt><dd>A monitor, or one group of a multi alert monitor, goes into Alert.</dd></div>
+                <div><dt><code>datadog.warn</code><code>datadog.no_data</code></dt><dd>It goes into Warn or No Data.</dd></div>
+                <div><dt><code>datadog.recovered</code></dt><dd>It goes back to OK.</dd></div>
+              </dl>
+              <div class="provider-side">
+                <div>
+                  <span class="sub-label">Good to know</span>
+                  <p>Reads the monitor alerts of the whole organization, so filter it down to what you own. Skips re-notifications and continues from a saved cursor.</p>
+                </div>
+                <div class="filter">
+                  <span class="sub-label">Watch less, with Datadog event search</span>
+                  <code class="cmd">--filter 'team:payments -env:staging'</code>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="provider" role="tabpanel" id="p-todoist" aria-labelledby="ptab-todoist">
+            <h3>Todoist</h3>
+            <div class="provider-grid">
+              <dl class="kinds">
+                <div><dt><code>task.created</code><code>task.completed</code></dt><dd>A task is added or completed, by you or a collaborator.</dd></div>
+                <div><dt><code>task.rescheduled</code></dt><dd>A due date changes, with the new date.</dd></div>
+                <div><dt><code>task.commented</code></dt><dd>Someone comments on a task.</dd></div>
+                <div><dt><code>task.due</code></dt><dd>Once a day, for each task due today.</dd></div>
+              </dl>
+              <div class="provider-side">
+                <div>
+                  <span class="sub-label">Good to know</span>
+                  <p>Reads the activity log, so your Todoist plan needs activity history. Continues from a saved cursor.</p>
+                </div>
+                <div class="filter">
+                  <span class="sub-label">Watch less, with a Todoist filter</span>
+                  <code class="cmd">--filter '#Work &amp; p1'</code>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <p class="providers-note">Every service also prints an <code>error</code> line when a request fails, once, and keeps checking.</p>
+      </div>
     </div>
   </section>
 
-  <section class="section" aria-labelledby="notes-title">
-    <div class="wrap">
-      <h2 id="notes-title">Before you leave it running</h2>
-      <div class="notes">
-        <div>
-          <h3>Filter with <code>--filter</code>, not grep</h3>
-          <p>hark marks the GitHub notifications it prints as read, so a line you drop with <code>grep -v</code> leaves your unread list without anyone seeing it. Threads that <code>--filter</code> drops stay unread.</p>
-        </div>
-        <div>
-          <h3>Restarts lose nothing</h3>
-          <p>Datadog, Jira, Slack and Todoist resume from a saved cursor. GitHub starts one hour back, or from the time you pass to <code>--since</code>.</p>
-        </div>
-        <div>
-          <h3>It stays up to date</h3>
-          <p>On every start, a released hark looks for a newer release, verifies its checksum and restarts on it. Set <code>HARK_NO_UPDATE=1</code> to turn that off, or run <code>hark update</code> when you want it.</p>
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="container faq-grid">
+      <div class="section-head">
+        <h2 id="faq-title">Frequently asked questions</h2>
+        <p>Something else? <a href="https://github.com/dukex/hark/issues">Open an issue on GitHub</a>.</p>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Which agents does hark work with?</summary>
+          <p>Claude Code runs hark as a background monitor and reacts to each line it prints. Any agent that can keep a command running and read its output can use hark the same way.</p>
+        </details>
+        <details>
+          <summary>How is this different from an MCP server?</summary>
+          <p>An MCP server answers when the agent asks. hark tells the agent when something happens, without being asked. They work well together: hark says a review arrived, and the agent reads it with <code>gh</code> or an MCP server.</p>
+        </details>
+        <details>
+          <summary>Do I need a server or webhooks?</summary>
+          <p>No. hark runs on your machine and checks each service once a minute with your own tokens. There is nothing to deploy and no account to create.</p>
+        </details>
+        <details>
+          <summary>Where do my tokens go?</summary>
+          <p>Only to the services they belong to. hark reads them from your environment, and the only other place it connects to is GitHub, to look for a newer version of itself.</p>
+        </details>
+        <details>
+          <summary>Can hark change things in my accounts?</summary>
+          <p>hark only reads, except that it marks the GitHub notifications it reports as read. What the agent does is up to the prompt, and the one on this page tells it to ask you before it replies, closes or changes anything.</p>
+        </details>
+        <details>
+          <summary>What happens if a monitor stops?</summary>
+          <p>Your agent starts it again. Every service except GitHub continues from where it stopped, and for GitHub the agent passes the time of the last line to <code>--since</code>, so nothing in between is lost.</p>
+        </details>
+        <details>
+          <summary>Does it work with GitHub Enterprise and Jira Server?</summary>
+          <p>GitHub Enterprise works: set <code>HARK_GITHUB_API</code> to your API URL. Jira needs a Jira Cloud site.</p>
+        </details>
+        <details>
+          <summary>Which systems does it run on?</summary>
+          <p>Linux and macOS, on amd64 and arm64.</p>
+        </details>
+        <details>
+          <summary>How much does it cost?</summary>
+          <p>Nothing. hark is free, and its source is on GitHub.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="cta-title">
+    <div class="container">
+      <div class="cta-band">
+        <h2 id="cta-title">Give your agent ears</h2>
+        <p>Copy the prompt, paste it into Claude Code and keep working. Your agent will tell you when something needs you.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button" data-copy="prompt">Copy the setup prompt</button>
+          <a class="btn btn-primary nojs-only" href="#start">Get started</a>
+          <a class="btn btn-secondary" href="https://github.com/dukex/hark">View on GitHub</a>
         </div>
       </div>
     </div>
   </section>
 </main>
 
-<footer class="foot">
-  <div class="wrap">
-    <p class="muted small">hark is open source, for Linux and macOS. Run <code>hark help</code> for the full reference.</p>
-    <ul>
-      <li><a href="https://github.com/dukex/hark">Source</a></li>
-      <li><a href="https://github.com/dukex/hark#readme">README</a></li>
-      <li><a href="https://github.com/dukex/hark/releases">Releases</a></li>
-      <li><a href="https://github.com/dukex/hark/issues">Issues</a></li>
-    </ul>
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="./">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#F2C94C"/><path fill="#000" d="M7 5h2.5v5.6c.8-1 2-1.6 3.5-1.6 2.6 0 4 1.6 4 4.4V19h-2.5v-5.3c0-1.6-.7-2.4-2-2.4-1.6 0-3 1.1-3 3.1V19H7z"/></svg>
+        hark
+      </a>
+      <p>Keep your coding agent in the loop on reviews, builds, mentions and alerts.</p>
+    </div>
+    <nav class="footer-col" aria-labelledby="footer-product">
+      <p class="footer-title" id="footer-product">Product</p>
+      <ul>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#use-cases">Use cases</a></li>
+        <li><a href="#start">Get started</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
+    <nav class="footer-col" aria-labelledby="footer-project">
+      <p class="footer-title" id="footer-project">Project</p>
+      <ul>
+        <li><a href="https://github.com/dukex/hark">Source on GitHub</a></li>
+        <li><a href="https://github.com/dukex/hark#readme">Documentation</a></li>
+        <li><a href="https://github.com/dukex/hark/releases">Releases</a></li>
+        <li><a href="https://github.com/dukex/hark/issues">Report an issue</a></li>
+      </ul>
+    </nav>
   </div>
 </footer>
 
@@ -891,45 +1373,53 @@ todoist
     });
   });
 
-  const lines = [...document.querySelectorAll(".events li")];
   if (!reduce) {
-    lines.forEach((line) => line.classList.add("pending"));
-    lines.forEach((line, i) => setTimeout(() => line.classList.remove("pending"), 300 + i * 420));
+    document.querySelectorAll(".session [data-delay]").forEach((item) => {
+      item.classList.add("pending");
+      setTimeout(() => item.classList.remove("pending"), Number(item.dataset.delay));
+    });
   }
 
   const fieldButtons = [...document.querySelectorAll("[data-field]")];
   const parts = [...document.querySelectorAll("[data-f]")];
   fieldButtons.forEach((button) => button.addEventListener("click", () => {
-    const name = button.dataset.field;
     fieldButtons.forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
-    parts.forEach((p) => p.classList.toggle("on", p.dataset.f === name));
+    parts.forEach((p) => p.classList.toggle("on", p.dataset.f === button.dataset.field));
   }));
 
-  const tabs = [...document.querySelectorAll('[role="tab"]')];
-  const show = (index, focus) => {
+  const lists = new Map();
+  document.querySelectorAll('[role="tablist"]').forEach((list) => {
+    const tabs = [...list.querySelectorAll('[role="tab"]')];
+    const stepper = list.classList.contains("stepper");
+    const show = (index, focus) => {
+      tabs.forEach((tab, i) => {
+        const selected = i === index;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        if (stepper) {
+          tab.classList.toggle("done", i < index);
+          tab.classList.toggle("reached", i <= index);
+        }
+        document.getElementById(tab.getAttribute("aria-controls")).hidden = !selected;
+      });
+      if (focus) tabs[index].focus();
+    };
     tabs.forEach((tab, i) => {
-      const selected = i === index;
-      tab.setAttribute("aria-selected", String(selected));
-      tab.tabIndex = selected ? 0 : -1;
-      tab.classList.toggle("done", i < index);
-      tab.classList.toggle("reached", i <= index);
-      document.getElementById(tab.getAttribute("aria-controls")).hidden = !selected;
+      tab.addEventListener("click", () => show(i, false));
+      tab.addEventListener("keydown", (event) => {
+        const moves = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 };
+        if (!(event.key in moves)) return;
+        event.preventDefault();
+        show((moves[event.key] + tabs.length) % tabs.length, true);
+      });
     });
-    if (focus) tabs[index].focus();
-  };
-  tabs.forEach((tab, i) => {
-    tab.addEventListener("click", () => show(i, false));
-    tab.addEventListener("keydown", (event) => {
-      const moves = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 };
-      if (!(event.key in moves)) return;
-      event.preventDefault();
-      show((moves[event.key] + tabs.length) % tabs.length, true);
-    });
+    lists.set(list, show);
+    show(0, false);
   });
+  const stepper = document.querySelector(".stepper");
   document.querySelectorAll("[data-goto]").forEach((button) => {
-    button.addEventListener("click", () => show(Number(button.dataset.goto), true));
+    button.addEventListener("click", () => lists.get(stepper)(Number(button.dataset.goto), true));
   });
-  show(0, false);
 })();
 </script>
 </body>

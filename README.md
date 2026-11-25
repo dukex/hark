@@ -1,6 +1,6 @@
 # hark
 
-`hark` watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues and PRs.
+`hark` watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues, PRs, tasks and messages.
 
 ```
 $ hark github
@@ -32,9 +32,14 @@ github
   ✓ notifications: readable
 jira
   - not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN (...)
+slack
+  ✓ token: logged in as you on acme
+  ✓ search: 4 mentions and 12 DMs in the last 7 days
+  ✓ state: /home/you/.local/state/hark/slack.json
 todoist
   ✓ token: valid
   ✗ activity log: GET /api/v1/activities: 403 Forbidden
+  ✓ state: /home/you/.local/state/hark/todoist.json
 ```
 
 Providers that are not configured are listed but don't fail the check.

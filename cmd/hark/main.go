@@ -197,6 +197,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return err
 	})
 	flags.StringVar(&o.Filter, "filter", "", "")
+	exitOnEvent := flags.Bool("exit-on-event", false, "")
 	err := flags.Parse(args[1:])
 	if errors.Is(err, flag.ErrHelp) {
 		_, _ = fmt.Fprint(stdout, helpText)
@@ -211,7 +212,15 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
 	}
-	if err := p.Watch(ctx, onceUntilRecovered(func(e hark.Event) { _, _ = fmt.Fprintln(stdout, e) })); err != nil {
+	watch, stop := context.WithCancel(ctx)
+	defer stop()
+	show := func(e hark.Event) {
+		_, _ = fmt.Fprintln(stdout, e)
+		if *exitOnEvent && e.Kind != "error" {
+			stop()
+		}
+	}
+	if err := p.Watch(watch, onceUntilRecovered(show)); err != nil {
 		_, _ = fmt.Fprintln(stderr, "hark:", err)
 		return 1
 	}
@@ -219,7 +228,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 }
 
 func usage(stderr io.Writer) int {
-	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME] [--filter RULES]\nrun `hark help` for the full reference\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
+	_, _ = fmt.Fprintf(stderr, "usage: hark <%s> [--since TIME] [--filter RULES] [--exit-on-event]\nrun `hark help` for the full reference\n", strings.Join(slices.Sorted(maps.Keys(providers)), "|"))
 	return 2
 }
 

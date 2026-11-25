@@ -56,7 +56,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 
 ## Use it from Claude Code or another agent
 
-Paste this prompt into the session:
+Paste this prompt into the session. It also works in Copilot CLI, which has no monitor but wakes the agent when a background command exits: there the agent runs hark with `--exit-on-event` and starts it again after each batch of events.
 
 ```text
 Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
@@ -71,8 +71,12 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
    "GitHub activity on my issues and PRs", with the longest timeout allowed.
    When it expires, start it again. If more than an hour passed since it
    stopped, add `--since <time of its last line that is not an error>`, so
-   nothing in between is lost. If your tool has no monitor, run it in the
-   background and read its output every few minutes.
+   nothing in between is lost. If your tool has no monitor but wakes you
+   when a background command exits (Copilot CLI does), add `--exit-on-event`
+   and run it as a detached background command instead: it exits after
+   printing new events, so handle them and start it again right away, with
+   `--since <time of its last line that is not an error>`. With neither, run
+   it in the background and read its output every few minutes.
 3. Each line is one event:
    `<time> github <kind> <repo>#<number> @<actor> [watching] "<text>" <url>`.
    - `issue.commented` / `pr.commented` without `watching`: someone commented on
@@ -129,7 +133,7 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
 
 `hark help` (or `hark` alone) prints the full command line reference, written for agents.
 
-`hark <provider> [--since TIME] [--filter RULES]`
+`hark <provider> [--since TIME] [--filter RULES] [--exit-on-event]`
 
 ### `--since`
 
@@ -150,6 +154,12 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
 Exclude with `--filter`, not with `grep -v` after hark: GitHub notifications hark prints are marked as read, so a line dropped by a pipe disappears from your unread list unseen.
 
 On GitHub, notifications the filter drops stay unread, and `reason:` only matches notifications, never your own actions. On Todoist, each minute with activity costs two extra requests to find the tasks that match, and `task.due` lists only tasks due today that match.
+
+### `--exit-on-event`
+
+`--exit-on-event` makes hark exit with status 0 after the first poll that printed an event. It is for agents that have no monitor but are woken when a background command exits, such as Copilot CLI: the agent runs `hark github --exit-on-event 2>&1` as a detached background command, goes idle, and when hark exits it handles the lines and starts hark again. While nothing happens, hark keeps polling and the agent makes no model calls.
+
+hark exits only once the poll is done: GitHub has marked its notifications as read and the other providers have saved their cursor, so the next start picks up right after. `error` lines don't make it exit. On GitHub, pass `--since` with the time of the last event line when starting again, or your own actions made in between are skipped.
 
 ## GitHub
 

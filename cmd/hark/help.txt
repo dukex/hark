@@ -1,6 +1,6 @@
-hark streams one line per event from your Datadog, GitHub, Jira, Linear, Slack
-and Todoist accounts, so an agent can run it as a background monitor and react
-to what happens.
+hark streams one line per event from your Datadog, Discord, GitHub, Jira,
+Linear, Slack and Todoist accounts, so an agent can run it as a background
+monitor and react to what happens.
 This reference is written for that agent: it describes every line hark can
 print and what to do with it.
 
@@ -11,8 +11,8 @@ USAGE
   hark version | --version | -v                     print the installed version
   hark help | --help | -h | hark                    print this reference
 
-  <provider> is datadog, github, jira, linear, slack or todoist. Run one
-  hark per provider.
+  <provider> is datadog, discord, github, jira, linear, slack or todoist.
+  Run one hark per provider.
   OPTIONS are --since TIME, --filter RULES and --exit-on-event, see
   OPTIONS below. They go after the provider and can be written -since,
   --since TIME or --since=TIME. `hark <provider> --help` prints this
@@ -25,8 +25,9 @@ FOR AGENTS
   2. Start `hark <provider> 2>&1` as a background monitor, one per provider,
      and read its output line by line. Each event is exactly one line.
   3. When a monitor ends or times out, start it again:
-     - datadog, jira, linear, slack, todoist: the same command, without
-       --since. They resume from a saved cursor and do not repeat events.
+     - datadog, discord, jira, linear, slack, todoist: the same command,
+       without --since. They resume from a saved cursor and do not repeat
+       events.
      - github: the same command. If it was stopped for more than an hour, add
        --since TIME, where TIME is the first field of its last event line.
        Never take TIME from an `error` or `task.due` line (see OUTPUT).
@@ -39,8 +40,8 @@ FOR AGENTS
      marks every notification it prints as read, so a line dropped after hark
      is gone from the user's unread list without anyone seeing it.
   6. Never reply, react, close, assign, mute or change anything on GitHub,
-     Jira, Linear, Slack, Todoist or Datadog because of a line without
-     asking the user first.
+     Jira, Linear, Slack, Discord, Todoist or Datadog because of a line
+     without asking the user first.
 
 OUTPUT
   stdout has one event per line, oldest first within each poll:
@@ -52,13 +53,13 @@ OUTPUT
 
   TIME      when it happened, in UTC, RFC 3339: 2026-11-23T10:05:00Z.
             For `error` and `task.due` it is when hark printed the line.
-  PROVIDER  datadog, github, jira, linear, slack or todoist.
+  PROVIDER  datadog, discord, github, jira, linear, slack or todoist.
   KIND      what happened, see KINDS.
   REF       github: owner/repo#number, or owner/repo for ci.* kinds.
             jira and linear: the issue key, like PROJ-7. slack: #channel,
-            left out for DMs. todoist, datadog: never present.
-  @ACTOR    github, linear and slack: the login, display name or username of
-            who did it. Jira puts the person's name inside TEXT.
+            left out for DMs. discord, todoist, datadog: never present.
+  @ACTOR    github, linear, slack and discord: the login, display name or
+            username of who did it. Jira puts the person's name inside TEXT.
   watching  github only: the issue or PR was opened by someone else; you get
             it because you watch it, were mentioned or were asked to review.
             Without `watching` it is yours.
@@ -75,6 +76,7 @@ OUTPUT
     2026-11-23T10:15:00Z jira jira.transitioned PROJ-7 "Checkout: To Do to Done (Ana)" https://example.atlassian.net/browse/PROJ-7
     2026-11-23T10:16:00Z linear linear.mentioned ENG-12 @ana "@duke can you review the copy?" https://linear.app/acme/issue/ENG-12/refund-copy#comment-5d1e
     2026-11-23T10:17:00Z slack slack.mentioned #deploys @ana "<@U012AB> can you look?" https://example.slack.com/archives/C01/p1732356300000100
+    2026-11-23T10:17:30Z discord discord.mentioned @ana "Acme Dev: <@80351110224678912> is the fix on main?" https://discord.com/channels/41771983423143937/41771983423143938/1301717151744000000
     2026-11-23T10:18:00Z datadog datadog.alert "[Triggered on {host:web-1}] CPU is high" https://app.datadoghq.com/monitors/42
     2026-11-23T10:20:00Z todoist task.completed "Pay the power bill" https://app.todoist.com/app/task/6X7rM8
     2026-11-23T10:21:00Z github error "GET /notifications: 502 Bad Gateway"
@@ -168,6 +170,15 @@ KINDS
     task.due
         a task is due today. Printed once a day per task, on the first poll
         of the day (local time).
+  discord
+    discord.mentioned
+        someone else's message @mentions you, in a server the bot is in.
+        TEXT is "<server>: <message>".
+    discord.replied
+        someone else replied to your message without mentioning you. Same
+        TEXT.
+        hark reads Discord through a bot, so it only sees servers the bot
+        was added to, and never your DMs.
   datadog
     datadog.alert, datadog.warn, datadog.no_data
         a monitor, or one group of a multi alert monitor, went into Alert,
@@ -186,9 +197,9 @@ KINDS
 
   Your own actions: github reports the ones you make (pr.opened, closing,
   merging) from your public activity, which GitHub can delay by up to a few
-  hours. jira and slack never report them. linear reports what reaches your
-  Linear inbox. todoist reports everyone's, including yours. datadog reports
-  monitors, not people.
+  hours. jira, slack and discord never report them. linear reports what
+  reaches your Linear inbox. todoist reports everyone's, including yours.
+  datadog reports monitors, not people.
 
 OPTIONS
   --since TIME
@@ -197,9 +208,9 @@ OPTIONS
       2026-11-23T07:05:00-03:00) or a date (2026-11-23, midnight in your time
       zone). Anything else exits 2.
       Default start: github, unread notifications from one hour before hark
-      started. datadog, jira, linear, slack and todoist, their saved cursor,
-      or one hour back on the first run. --since replaces the saved cursor,
-      and the new position is saved as hark runs.
+      started. datadog, discord, jira, linear, slack and todoist, their saved
+      cursor, or one hour back on the first run. --since replaces the saved
+      cursor, and the new position is saved as hark runs.
       github only sees notifications that are still unread: what hark or the
       user already marked as read never comes back, whatever TIME says.
 
@@ -238,6 +249,13 @@ OPTIONS
               start.
                 --filter '{"type":{"in":["issueMention","issueCommentMention"]}}'
                 --filter '{"type":{"nin":["issueNewComment"]}}'   (exclude)
+      discord parameters of Discord's Search Guild Messages, as a query
+              string, added to both searches (mentions and replies) in every
+              server. Repeat a parameter for more values, and put "-" before
+              author_type or has values to exclude them:
+                --filter 'channel_id=41771983423143938'
+                --filter 'author_type=-bot'
+                --filter 'channel_id=41771983423143938&channel_id=41771983423143939'
       datadog Datadog event search syntax, added to source:alert, the
               monitor alert events of the whole organization. Without a
               filter that is every monitor, which in a large organization is
@@ -294,6 +312,10 @@ ENVIRONMENT
   DD_SITE             your Datadog site, like datadoghq.eu or
                       us5.datadoghq.com. Default datadoghq.com.
   HARK_DATADOG_API    Datadog API URL. Default https://api.<DD_SITE>.
+  DISCORD_TOKEN       the bot token of a Discord app you create, with Message
+                      Content Intent on, discord.com/developers/applications.
+  DISCORD_USER_ID     your own Discord user ID, to find your mentions.
+  HARK_DISCORD_API    Discord API URL. Default https://discord.com/api/v10.
   GITHUB_TOKEN        GitHub token. Without it hark uses `gh auth token`.
   HARK_GITHUB_API     GitHub API URL, for GitHub Enterprise. Default
                       https://api.github.com.
@@ -312,7 +334,7 @@ ENVIRONMENT
   XDG_STATE_HOME      where state lives, default ~/.local/state.
 
 STATE
-  datadog, jira, linear, slack and todoist save their cursor in
+  datadog, discord, jira, linear, slack and todoist save their cursor in
   $XDG_STATE_HOME/hark/<provider>.json (~/.local/state/hark/<provider>.json).
   Delete the file to start over from one hour back. github keeps no file:
   GitHub's read/unread state is its cursor, and hark marks each notification

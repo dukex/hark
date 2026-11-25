@@ -20,6 +20,7 @@ import (
 
 	"github.com/dukex/hark"
 	"github.com/dukex/hark/datadog"
+	"github.com/dukex/hark/discord"
 	"github.com/dukex/hark/github"
 	"github.com/dukex/hark/jira"
 	"github.com/dukex/hark/linear"
@@ -58,6 +59,7 @@ type constructor func(getenv func(string) string, o options) (hark.Provider, err
 
 var providers = map[string]constructor{
 	"datadog": newDatadog,
+	"discord": newDiscord,
 	"github":  newGitHub,
 	"jira":    newJira,
 	"linear":  newLinear,
@@ -154,6 +156,20 @@ func newLinear(getenv func(string) string, o options) (hark.Provider, error) {
 		return nil, err
 	}
 	w := linear.New(cmp.Or(getenv("HARK_LINEAR_API"), "https://api.linear.app/graphql"), key, state)
+	w.Since, w.Filter = o.Since, o.Filter
+	return w, nil
+}
+
+func newDiscord(getenv func(string) string, o options) (hark.Provider, error) {
+	token, user := getenv("DISCORD_TOKEN"), getenv("DISCORD_USER_ID")
+	if token == "" || user == "" {
+		return nil, fmt.Errorf("%w: set DISCORD_TOKEN and DISCORD_USER_ID (the bot token of a Discord app with Message Content Intent, added to your servers, and your own user ID)", errNotConfigured)
+	}
+	state, err := hark.StatePath("discord")
+	if err != nil {
+		return nil, err
+	}
+	w := discord.New(cmp.Or(getenv("HARK_DISCORD_API"), "https://discord.com/api/v10"), token, user, state)
 	w.Since, w.Filter = o.Since, o.Filter
 	return w, nil
 }

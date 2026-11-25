@@ -6,9 +6,9 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0D0D0D">
 <title>hark</title>
-<meta name="description" content="hark watches your GitHub, Jira, Slack and Todoist accounts and prints one line per event, so Claude Code can run it as a monitor and tell you what changed while you work.">
+<meta name="description" content="hark watches your Datadog, GitHub, Jira, Slack and Todoist accounts and prints one line per event, so Claude Code can run it as a monitor and tell you what changed while you work.">
 <meta property="og:title" content="hark">
-<meta property="og:description" content="Your GitHub, Jira, Slack and Todoist activity, one line per event, for Claude Code monitors.">
+<meta property="og:description" content="Your Datadog, GitHub, Jira, Slack and Todoist activity, one line per event, for Claude Code monitors.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://dukex.github.io/hark/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F2C94C'/%3E%3Ctext x='16' y='23' font-family='Inter,Arial,sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='%23000'%3Eh%3C/text%3E%3C/svg%3E">
@@ -547,8 +547,8 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 <main>
   <section class="hero" aria-labelledby="title">
     <div class="wrap">
-      <h1 id="title">Your GitHub, Jira, Slack and Todoist activity, one line per event</h1>
-      <p class="lead">hark watches your accounts and prints every comment, review, merge, failed build, mention and due task as a single line. Run it as a Claude Code monitor and your agent tells you what changed while you keep working.</p>
+      <h1 id="title">Your Datadog, GitHub, Jira, Slack and Todoist activity, one line per event</h1>
+      <p class="lead">hark watches your accounts and prints every comment, review, merge, failed build, mention, monitor alert and due task as a single line. Run it as a Claude Code monitor and your agent tells you what changed while you keep working.</p>
 
       <div class="install">
         <span class="label">Install on Linux or macOS</span>
@@ -559,8 +559,9 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
         <p class="alt muted small">Or with Go: <code>go install github.com/dukex/hark/cmd/hark@latest</code></p>
       </div>
 
-      <div class="stream surface" role="figure" aria-label="Example output from four hark monitors">
+      <div class="stream surface" role="figure" aria-label="Example output from five hark monitors">
         <div class="stream-head">
+          <span class="tag">hark datadog</span>
           <span class="tag">hark github</span>
           <span class="tag">hark jira</span>
           <span class="tag">hark slack</span>
@@ -576,6 +577,7 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
           <li><span class="ev-t">2026-11-23T10:15:00Z</span> <span class="ev-p">jira</span> <span class="ev-k">jira.transitioned</span> PROJ-7 "Checkout: To Do to Done (Ana)" <span class="ev-u">https://example.atlassian.net/browse/PROJ-7</span></li>
           <li><span class="ev-t">2026-11-23T10:17:00Z</span> <span class="ev-p">slack</span> <span class="ev-k warn">slack.mentioned</span> #deploys @ana "&lt;@U012AB&gt; can you look?" <span class="ev-u">https://example.slack.com/archives/C01/p1732356300000100</span></li>
           <li><span class="ev-t">2026-11-23T10:18:00Z</span> <span class="ev-p">jira</span> <span class="ev-k warn">jira.mentioned</span> PROJ-9 "Ana: can you check the refund copy before Friday?" <span class="ev-u">https://example.atlassian.net/browse/PROJ-9</span></li>
+          <li><span class="ev-t">2026-11-23T10:19:00Z</span> <span class="ev-p">datadog</span> <span class="ev-k bad">datadog.alert</span> "[Triggered on {host:web-1}] CPU is high" <span class="ev-u">https://app.datadoghq.com/monitors/42</span></li>
           <li><span class="ev-t">2026-11-23T10:20:00Z</span> <span class="ev-p">todoist</span> <span class="ev-k ok">task.completed</span> "Pay the power bill" <span class="ev-u">https://app.todoist.com/app/task/6X7rM8</span></li>
         </ol>
       </div>
@@ -593,13 +595,13 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
 
         <ul class="fields">
           <li><button type="button" data-field="time" aria-pressed="false"><span class="fname">TIME</span><span class="fdesc">When it happened, in UTC. Pass it to <code>--since</code> to pick up where a stopped monitor left off.</span></button></li>
-          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">github, jira, slack or todoist. You run one hark per provider.</span></button></li>
+          <li><button type="button" data-field="provider" aria-pressed="false"><span class="fname">PROVIDER</span><span class="fdesc">datadog, github, jira, slack or todoist. You run one hark per provider.</span></button></li>
           <li><button type="button" data-field="kind" aria-pressed="true"><span class="fname">KIND</span><span class="fdesc">What happened, like <code>pr.merged</code>, <code>ci.failed</code>, <code>slack.dm</code> or <code>task.due</code>.</span></button></li>
-          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira key, or the Slack <code>#channel</code>. Slack DMs and Todoist lines have none.</span></button></li>
+          <li><button type="button" data-field="ref" aria-pressed="false"><span class="fname">REF</span><span class="fdesc">The issue or PR as <code>owner/repo#number</code>, the Jira key, or the Slack <code>#channel</code>. Slack DMs, Todoist and Datadog lines have none.</span></button></li>
           <li><button type="button" data-field="actor" aria-pressed="false"><span class="fname">@ACTOR</span><span class="fdesc">The GitHub login or Slack username of who did it. Jira puts the name inside the text.</span></button></li>
           <li><button type="button" data-field="watching" aria-pressed="false"><span class="fname">watching</span><span class="fdesc">Someone else opened this thread and you follow it. Without it, the issue or PR is yours.</span></button></li>
           <li><button type="button" data-field="text" aria-pressed="false"><span class="fname">"TEXT"</span><span class="fdesc">The comment, review or title on one line, cut at 140 characters.</span></button></li>
-          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR, message or task.</span></button></li>
+          <li><button type="button" data-field="url" aria-pressed="false"><span class="fname">URL</span><span class="fdesc">A link straight to the comment, review, issue, PR, message, task or monitor.</span></button></li>
         </ul>
       </div>
     </div>
@@ -631,6 +633,8 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
           <h3>Check your accounts</h3>
           <p>Set a token for each provider you use, then run <code>hark doctor</code>. It checks every provider and tells you what failed. Providers you don't set up are listed and skipped.</p>
           <dl class="env">
+            <dt>Datadog</dt>
+            <dd><code>DD_API_KEY</code> and <code>DD_APP_KEY</code>, plus <code>DD_SITE</code> if your site is not datadoghq.com</dd>
             <dt>GitHub</dt>
             <dd><code>GITHUB_TOKEN</code>, or the token from <code>gh auth token</code></dd>
             <dt>Jira</dt>
@@ -642,6 +646,8 @@ a:hover { color: var(--primary); text-decoration-color: var(--primary); }
           </dl>
           <pre class="code" tabindex="0" role="region" aria-label="Example output of hark doctor"><span class="muted">$</span> hark doctor
 hark 0.8.0
+datadog
+  <span class="muted">- not configured: set DD_API_KEY, DD_APP_KEY</span>
 github
   <span class="ok">✓</span> token: logged in as you
   <span class="ok">✓</span> notifications: readable
@@ -661,7 +667,7 @@ todoist
         <section class="panel surface" role="tabpanel" id="step-3" aria-labelledby="tab-3">
           <h3>Start the monitors</h3>
           <p>Paste this prompt into the session. The agent starts one monitor per working provider, restarts them without losing events, tells you what each line asks of you, and asks before it replies, reacts, closes or changes anything.</p>
-          <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Prompt for Claude Code">Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
+          <pre class="code prompt" id="prompt" tabindex="0" role="region" aria-label="Prompt for Claude Code">Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -699,9 +705,9 @@ todoist
      what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
-   `hark jira 2&gt;&amp;1`, described as "Jira activity on my issues". Jira, Slack
-   and Todoist resume where they stopped on their own, so re-arm them without
-   `--since`:
+   `hark jira 2&gt;&amp;1`, described as "Jira activity on my issues". Jira, Slack,
+   Todoist and Datadog resume where they stopped on their own, so re-arm them
+   without `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
@@ -715,10 +721,16 @@ todoist
    "Slack mentions and DMs":
    - `slack.mentioned`, `slack.dm`: tell me who wrote, where, and what they
      ask for. Do not answer in Slack.
-   If I ask to watch only some repos, projects, channels or tasks, pass
-   `--filter` with the provider's own syntax (see the hark README).
-5. Never reply, react, close or change anything on GitHub, Jira, Slack or
-   Todoist without asking me first.</pre>
+   If doctor shows datadog working, ask me which services or teams I own and
+   start `hark datadog --filter '&lt;that&gt;' 2&gt;&amp;1`, described as "Datadog
+   monitors": without a filter it reports every monitor in the organization.
+   - `datadog.alert`, `datadog.no_data`: tell me right away, with the monitor.
+   - `datadog.warn`: tell me in one line.
+   - `datadog.recovered`: tell me in one line if I was told it was down.
+   If I ask to watch only some repos, projects, channels, tasks or services,
+   pass `--filter` with the provider's own syntax (see the hark README).
+5. Never reply, react, close, mute or change anything on GitHub, Jira, Slack,
+   Todoist or Datadog without asking me first.</pre>
           <div class="panel-actions"><button class="btn btn-primary" type="button" data-copy="prompt">Copy prompt</button></div>
         </section>
       </div>
@@ -790,6 +802,20 @@ todoist
             <code class="cmd">--filter '#Work &amp; p1'</code>
           </div>
         </article>
+
+        <article class="provider surface" aria-labelledby="p-datadog">
+          <h3 id="p-datadog">Datadog</h3>
+          <dl class="kinds">
+            <div><dt><code>datadog.alert</code></dt><dd>A monitor, or one group of a multi alert monitor, goes into Alert.</dd></div>
+            <div><dt><code>datadog.warn</code> <code>datadog.no_data</code></dt><dd>It goes into Warn or No Data.</dd></div>
+            <div><dt><code>datadog.recovered</code></dt><dd>It goes back to OK.</dd></div>
+          </dl>
+          <p>Reads the monitor alert events of the whole organization, so filter it down to what you own. Skips re-notifications and saves its place like Jira does.</p>
+          <div class="filter">
+            <span class="label">Watch less, with Datadog event search</span>
+            <code class="cmd">--filter 'team:payments -env:staging'</code>
+          </div>
+        </article>
       </div>
       <p class="providers-note muted small">Every provider also prints an <code>error</code> line when a request fails, once, and keeps checking.</p>
     </div>
@@ -805,7 +831,7 @@ todoist
         </div>
         <div>
           <h3>Restarts lose nothing</h3>
-          <p>Jira, Slack and Todoist resume from a saved cursor. GitHub starts one hour back, or from the time you pass to <code>--since</code>.</p>
+          <p>Datadog, Jira, Slack and Todoist resume from a saved cursor. GitHub starts one hour back, or from the time you pass to <code>--since</code>.</p>
         </div>
         <div>
           <h3>It stays up to date</h3>

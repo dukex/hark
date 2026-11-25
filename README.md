@@ -1,6 +1,6 @@
 # hark
 
-`hark` watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues, PRs, tasks and messages.
+`hark` watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues, PRs, tasks, messages and monitors.
 
 ```
 $ hark github
@@ -27,6 +27,8 @@ With Go: `go install github.com/dukex/hark/cmd/hark@latest`.
 
 ```
 hark 0.8.0
+datadog
+  - not configured: set DD_API_KEY, DD_APP_KEY (...)
 github
   ✓ token: logged in as you
   ✓ notifications: readable
@@ -55,7 +57,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 Paste this prompt into the session:
 
 ```text
-Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
+Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://raw.githubusercontent.com/dukex/hark/main/install.sh | sh`.
@@ -93,9 +95,9 @@ Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
      what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
-   `hark jira 2>&1`, described as "Jira activity on my issues". Jira, Slack
-   and Todoist resume where they stopped on their own, so re-arm them without
-   `--since`:
+   `hark jira 2>&1`, described as "Jira activity on my issues". Jira, Slack,
+   Todoist and Datadog resume where they stopped on their own, so re-arm them
+   without `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
@@ -109,10 +111,16 @@ Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
    "Slack mentions and DMs":
    - `slack.mentioned`, `slack.dm`: tell me who wrote, where, and what they
      ask for. Do not answer in Slack.
-   If I ask to watch only some repos, projects, channels or tasks, pass
-   `--filter` with the provider's own syntax (see the hark README).
-5. Never reply, react, close or change anything on GitHub, Jira, Slack or
-   Todoist without asking me first.
+   If doctor shows datadog working, ask me which services or teams I own and
+   start `hark datadog --filter '<that>' 2>&1`, described as "Datadog
+   monitors": without a filter it reports every monitor in the organization.
+   - `datadog.alert`, `datadog.no_data`: tell me right away, with the monitor.
+   - `datadog.warn`: tell me in one line.
+   - `datadog.recovered`: tell me in one line if I was told it was down.
+   If I ask to watch only some repos, projects, channels, tasks or services,
+   pass `--filter` with the provider's own syntax (see the hark README).
+5. Never reply, react, close, mute or change anything on GitHub, Jira, Slack,
+   Todoist or Datadog without asking me first.
 ```
 
 ## Options
@@ -123,7 +131,7 @@ Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
 
 ### `--since`
 
-`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Slack and Todoist already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Slack, Todoist and Datadog already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
 
 ### `--filter`
 
@@ -135,6 +143,7 @@ Watch my GitHub, Jira, Slack and Todoist activity with hark while we work.
 | `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'`, `--filter 'project != OPS'` |
 | `slack` | Slack search modifiers, added to the mention and DM searches | `--filter 'in:#deploys'`, `--filter '-in:#random'` |
 | `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'`, `--filter '!#Personal'` |
+| `datadog` | Datadog event search, added to `source:alert` | `--filter 'service:checkout'`, `--filter 'team:payments -env:staging'` |
 
 Exclude with `--filter`, not with `grep -v` after hark: GitHub notifications hark prints are marked as read, so a line dropped by a pipe disappears from your unread list unseen.
 
@@ -216,6 +225,22 @@ hark keeps its cursor in `~/.local/state/hark/todoist.json` (or `$XDG_STATE_HOME
 | `task.commented` | someone comments on a task |
 | `task.due` | once a day, for each task due today |
 | `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
+
+## Datadog
+
+`hark datadog` needs `DD_API_KEY` and `DD_APP_KEY` (an application key that can read events), from Organization Settings, and `DD_SITE` if your site is not `datadoghq.com` (for example `datadoghq.eu` or `us5.datadoghq.com`). Every minute it reads the monitor alert events (`source:alert`) of the whole organization, so pass `--filter` with the services, teams or tags you own. A filter with a tag that does not exist is not an error, it just matches nothing.
+
+It keeps its cursor in `~/.local/state/hark/datadog.json` and the first run picks up the last hour. `--since` replaces the saved cursor.
+
+| Kind | When |
+|------|------|
+| `datadog.alert` | a monitor, or one group of a multi alert monitor, goes into Alert |
+| `datadog.warn` | it goes into Warn |
+| `datadog.no_data` | it stops receiving data |
+| `datadog.recovered` | it goes back to OK |
+| `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
+
+The text is the event title, the link opens the monitor. Re-notifications, and transitions that keep the same state, are not reported. Each poll looks 5 minutes back for events Datadog indexed late; anything later than that is missed.
 
 ## Adding a provider
 

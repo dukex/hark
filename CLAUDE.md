@@ -17,6 +17,7 @@ People notice a new or changed provider, event kind, field of the line, flag, co
 - `help.txt`: the opening sentence, the `<provider> is ...` list in USAGE, FOR AGENTS (how it resumes, what never to do on it), PROVIDER, REF and @ACTOR in OUTPUT, an example line, its entry in KINDS, "Your own actions", the default start under `--since`, its `--filter` syntax with examples, ENVIRONMENT and STATE.
 - `README.md`: the opening sentence, the `hark doctor` sample, the prompt in "Use it from Claude Code" (which monitor to start and what to do with each kind), the `--since` paragraph, the `--filter` table, and a section of its own with setup steps, how it polls, a kinds table and its known limits.
 - `docs/index.html`: `<meta name="description">` and `og:description`, the hero title and lead, a `hark <provider>` tag and an example line in the hero stream, the field descriptions under "One event, one line", the environment variables and the `hark doctor` sample in setup step 2, the prompt in step 3, a card under "What each provider reports" (kinds, how it resumes, a `--filter` example), and "Restarts lose nothing".
+- The GitHub repo description, which also names every provider: `gh repo edit dukex/hark --description "..."`, run by Emerson after the merge.
 
 ### A new kind, flag, command or variable
 

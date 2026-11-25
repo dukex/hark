@@ -36,6 +36,8 @@ github
   ✓ notifications: readable
 jira
   - not configured: set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN (...)
+linear
+  - not configured: set LINEAR_API_KEY (...)
 slack
   ✓ token: logged in as you on acme
   ✓ search: 4 mentions and 12 DMs in the last 7 days
@@ -59,7 +61,7 @@ On every start, a released hark checks the latest GitHub release. When it is new
 Paste this prompt into the session. It also works in Copilot CLI, which has no monitor but wakes the agent when a background command exits: there the agent runs hark with `--exit-on-event` and starts it again after each batch of events.
 
 ```text
-Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we work.
+Watch my Datadog, GitHub, Jira, Linear, Slack and Todoist activity with hark while we work.
 
 1. If `hark` is not on PATH, install it with
    `curl -fsSL https://hark.dukex.sh/install | sh`.
@@ -101,12 +103,18 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
      what failed.
    - A line starting with `hark:` means hark stopped. Show it to me.
 4. If doctor shows jira working, start another monitor the same way with
-   `hark jira 2>&1`, described as "Jira activity on my issues". Jira, Slack,
-   Todoist and Datadog resume where they stopped on their own, so re-arm them
-   without `--since`:
+   `hark jira 2>&1`, described as "Jira activity on my issues". Jira, Linear,
+   Slack, Todoist and Datadog resume where they stopped on their own, so
+   re-arm them without `--since`:
    - `jira.mentioned`, `jira.assigned`: tell me right away.
    - `jira.commented`: tell me what it asks for.
    - `jira.transitioned`: tell me in one line.
+   If doctor shows linear working, start `hark linear 2>&1`, described as
+   "Linear inbox":
+   - `linear.mentioned`, `linear.assigned`: tell me right away.
+   - `linear.commented`: tell me what it asks for.
+   - `linear.transitioned`: tell me in one line.
+   - Other `linear.*` kinds: stay quiet unless they touch this session's work.
    If doctor shows todoist working, start one more with `hark todoist 2>&1`,
    described as "Todoist activity":
    - `task.due`: remind me of what is due today, once.
@@ -125,8 +133,8 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
    - `datadog.recovered`: tell me in one line if I was told it was down.
    If I ask to watch only some repos, projects, channels, tasks or services,
    pass `--filter` with the provider's own syntax (see the hark README).
-5. Never reply, react, close, mute or change anything on GitHub, Jira, Slack,
-   Todoist or Datadog without asking me first.
+5. Never reply, react, close, mute or change anything on GitHub, Jira, Linear,
+   Slack, Todoist or Datadog without asking me first.
 ```
 
 ## Options
@@ -137,7 +145,7 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
 
 ### `--since`
 
-`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Slack, Todoist and Datadog already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
+`--since TIME` reports events from TIME instead of the default start below. TIME is what hark prints at the start of each line (`2026-11-23T10:05:00Z`, any RFC 3339 offset works) or a date (`2026-11-23`, midnight in your time zone). Jira, Linear, Slack, Todoist and Datadog already resume from their saved cursor, so `--since` is for going further back or skipping ahead. GitHub has no cursor and starts one hour back, so after a longer gap pass the time of the last line you saw. Use an event line: `error` and `task.due` lines carry the time hark printed them, and resuming from an `error` skips what failed to load.
 
 ### `--filter`
 
@@ -147,6 +155,7 @@ Watch my Datadog, GitHub, Jira, Slack and Todoist activity with hark while we wo
 |----------|-------|---------|
 | `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`, each negated with `-` (`-repo:acme/legacy`). Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme -is:ci'` |
 | `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'`, `--filter 'project != OPS'` |
+| `linear` | a Linear API `NotificationFilter` as JSON, where `type` is the notification type | `--filter '{"type":{"in":["issueMention","issueCommentMention"]}}'`, `--filter '{"type":{"nin":["issueNewComment"]}}'` |
 | `slack` | Slack search modifiers, added to the mention and DM searches | `--filter 'in:#deploys'`, `--filter '-in:#random'` |
 | `todoist` | a Todoist filter, as in the app | `--filter '#Work & p1'`, `--filter '!#Personal'` |
 | `datadog` | Datadog event search, added to `source:alert` | `--filter 'service:checkout'`, `--filter 'team:payments -env:staging'` |
@@ -204,6 +213,23 @@ Like Todoist, it keeps its cursor in `~/.local/state/hark/jira.json` and the fir
 | `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
 
 Mentions on issues you don't follow are not reported.
+
+## Linear
+
+`hark linear` needs `LINEAR_API_KEY`, a personal API key from Linear, Settings, Security & access, Personal API keys. Every minute it reads your Linear inbox notifications, archived ones included, so what you clear in the app while hark is stopped is still reported. Linear does not notify you about your own actions.
+
+It keeps its cursor in `~/.local/state/hark/linear.json` and the first run picks up the last hour. `--since` replaces the saved cursor.
+
+| Kind | When |
+|------|------|
+| `linear.mentioned` | someone mentions you in an issue (the text is the title) or a comment (the text is the comment) |
+| `linear.assigned` | someone assigns an issue to you |
+| `linear.commented` | someone comments on an issue you are subscribed to |
+| `linear.transitioned` | the status changes; the text ends with the status the issue has now |
+| `linear.<type>` | any other notification, like `linear.unassigned_from_you` or `linear.emoji_reaction` |
+| `error` | a request failed; hark keeps polling and prints the same error only once until another event arrives |
+
+What reaches your inbox depends on your notification settings in Linear. A notification created more than 5 minutes before Linear returns it is missed.
 
 ## Slack
 

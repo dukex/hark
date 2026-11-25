@@ -21,6 +21,7 @@ import (
 	"github.com/dukex/hark"
 	"github.com/dukex/hark/github"
 	"github.com/dukex/hark/jira"
+	"github.com/dukex/hark/slack"
 	"github.com/dukex/hark/todoist"
 	"github.com/dukex/hark/update"
 )
@@ -56,6 +57,7 @@ type constructor func(getenv func(string) string, o options) (hark.Provider, err
 var providers = map[string]constructor{
 	"github":  newGitHub,
 	"jira":    newJira,
+	"slack":   newSlack,
 	"todoist": newTodoist,
 }
 
@@ -110,6 +112,20 @@ func newJira(getenv func(string) string, o options) (hark.Provider, error) {
 		return nil, err
 	}
 	w := jira.New(getenv("JIRA_URL"), getenv("JIRA_EMAIL"), getenv("JIRA_API_TOKEN"), state)
+	w.Since, w.Filter = o.Since, o.Filter
+	return w, nil
+}
+
+func newSlack(getenv func(string) string, o options) (hark.Provider, error) {
+	token := getenv("SLACK_TOKEN")
+	if token == "" {
+		return nil, fmt.Errorf("%w: set SLACK_TOKEN to the user token (xoxp-) of a Slack app with the search:read user scope", errNotConfigured)
+	}
+	state, err := hark.StatePath("slack")
+	if err != nil {
+		return nil, err
+	}
+	w := slack.New(cmp.Or(getenv("HARK_SLACK_API"), "https://slack.com/api"), token, state)
 	w.Since, w.Filter = o.Since, o.Filter
 	return w, nil
 }

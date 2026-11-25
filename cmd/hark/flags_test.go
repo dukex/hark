@@ -40,7 +40,7 @@ func TestBadSinceIsAUsageError(t *testing.T) {
 		if code := run(context.Background(), args, env(nil), nil, &stderr); code != 2 {
 			t.Errorf("%v: exit %d", args, code)
 		}
-		if !strings.HasSuffix(stderr.String(), "usage: hark <github|jira|todoist> [--since TIME] [--filter RULES]\nrun `hark help` for the full reference\n") {
+		if !strings.HasSuffix(stderr.String(), "usage: hark <github|jira|slack|todoist> [--since TIME] [--filter RULES]\nrun `hark help` for the full reference\n") {
 			t.Errorf("%v: stderr %q", args, stderr.String())
 		}
 	}

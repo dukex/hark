@@ -6,20 +6,20 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0D0D0D">
 <title>hark: keep Claude Code in the loop on reviews, CI and alerts</title>
-<meta name="description" content="hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta name="description" content="hark is a free, open source CLI that connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
 <link rel="canonical" href="https://hark.dukex.sh/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="hark">
 <meta property="og:url" content="https://hark.dukex.sh/">
 <meta property="og:title" content="hark: keep your coding agent in the loop">
-<meta property="og:description" content="hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta property="og:description" content="hark is a free, open source CLI that connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
 <meta property="og:image" content="https://hark.dukex.sh/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="hark: keep your coding agent in the loop. A review arrives and the agent offers to make the change.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="hark: keep your coding agent in the loop">
-<meta name="twitter:description" content="hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
+<meta name="twitter:description" content="hark is a free, open source CLI that connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.">
 <meta name="twitter:image" content="https://hark.dukex.sh/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -32,13 +32,16 @@
   "@type": "SoftwareApplication",
   "name": "hark",
   "url": "https://hark.dukex.sh/",
-  "description": "hark connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.",
+  "description": "hark is a free, open source CLI that connects Claude Code to GitHub, Slack, Discord, Jira, Linear, Datadog and Todoist, so your agent hears about reviews, failed builds, mentions and alerts as they happen.",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux, macOS",
   "image": "https://hark.dukex.sh/og.png",
   "downloadUrl": "https://github.com/dukex/hark/releases/latest",
   "sameAs": ["https://github.com/dukex/hark"],
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "isAccessibleForFree": true,
+  "license": "https://opensource.org/licenses/MIT",
+  "author": { "@type": "Person", "name": "Duke", "url": "https://dukex.sh/" }
 }
 </script>
 <style>
@@ -799,7 +802,7 @@ p code, dd code, li code, summary code {
           <a class="btn btn-primary nojs-only" href="#start">Get started</a>
           <a class="btn btn-secondary" href="https://github.com/dukex/hark">View on GitHub</a>
         </div>
-        <p class="cta-note">Paste it into Claude Code. Your agent installs hark, checks your accounts and starts listening. Free, for Linux and macOS.</p>
+        <p class="cta-note">Paste it into Claude Code. Your agent installs hark, checks your accounts and starts listening. Free and open source under the MIT License, for Linux and macOS.</p>
       </div>
 
       <figure class="session" aria-label="Example of an agent session with hark running">
@@ -1401,6 +1404,7 @@ todoist
         <li><a href="https://github.com/dukex/hark#readme">Documentation</a></li>
         <li><a href="https://github.com/dukex/hark/releases">Releases</a></li>
         <li><a href="https://github.com/dukex/hark/issues">Report an issue</a></li>
+        <li><a href="https://github.com/dukex/hark/blob/main/LICENSE">MIT License</a></li>
       </ul>
     </nav>
   </div>

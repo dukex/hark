@@ -76,7 +76,7 @@ export const Hook = () => {
           }),
         }}
       >
-        Reviews, CI runs, pings and alerts reach it while it works.
+        hark watches them and tells your agent what changed.
       </Interactive.Div>
     </AbsoluteFill>
   );

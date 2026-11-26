@@ -335,3 +335,7 @@ type Provider interface {
 	Doctor(ctx context.Context) []Check
 }
 ```
+
+## License
+
+hark is free and open source under the [MIT License](LICENSE).

@@ -1,6 +1,10 @@
 # hark
 
-`hark` watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues, PRs, tasks, messages and monitors.
+[![Release](https://img.shields.io/github/v/release/dukex/hark)](https://github.com/dukex/hark/releases/latest)
+[![Go Reference](https://pkg.go.dev/badge/github.com/dukex/hark.svg)](https://pkg.go.dev/github.com/dukex/hark)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+
+`hark` is a free, open source CLI that watches your accounts and prints one line per event, so Claude Code can run it as a Monitor and react to what happens on your issues, PRs, tasks, messages and monitors.
 
 Site: [hark.dukex.sh](https://hark.dukex.sh)
 

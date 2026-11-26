@@ -11,10 +11,10 @@ func TestParseFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(f["repo"]) != 2 || f["is"][0] != "pr" || f["reason"][1] != "review_requested" || f["org"][0] != "acme" {
+	if q := f.terms; len(q["repo"]) != 2 || q["is"][0] != "pr" || q["reason"][1] != "review_requested" || q["org"][0] != "acme" {
 		t.Errorf("%v", f)
 	}
-	if f, err := ParseFilter(""); err != nil || len(f) != 0 {
+	if f, err := ParseFilter(""); err != nil || len(f.terms) != 0 {
 		t.Errorf("empty: %v, %v", f, err)
 	}
 	for in, want := range map[string]string{
@@ -45,7 +45,7 @@ func TestFilterMatches(t *testing.T) {
 			t.Errorf("%+v: %v", c, got)
 		}
 	}
-	if !Filter(nil).match("any/repo", "", "issue") {
+	if !(Filter{}).match("any/repo", "", "issue") {
 		t.Error("an empty filter keeps everything")
 	}
 }
@@ -135,4 +135,70 @@ func TestExcludedThreadsStayUnread(t *testing.T) {
 	if strings.Join(f.marked, ",") != "1" {
 		t.Errorf("marked %v, want the excluded thread left unread", f.marked)
 	}
+}
+
+func TestFilterOr(t *testing.T) {
+	for in, cases := range map[string]map[[2]string]bool{
+		"org:acme -repo:acme/noisy OR reason:author": {
+			{"acme/lib", "mention"}:   true,
+			{"acme/noisy", "mention"}: false,
+			{"acme/noisy", "author"}:  true,
+			{"dukex/foo", "author"}:   true,
+			{"dukex/foo", "mention"}:  false,
+		},
+		"org:acme (-repo:acme/noisy OR reason:author)": {
+			{"acme/lib", "mention"}:   true,
+			{"acme/noisy", "mention"}: false,
+			{"acme/noisy", "author"}:  true,
+			{"dukex/foo", "author"}:   false,
+		},
+		"(repo:dukex/foo OR (org:acme reason:mention))-reason:subscribed": {
+			{"dukex/foo", "author"}:     true,
+			{"dukex/foo", "subscribed"}: false,
+			{"acme/lib", "mention"}:     true,
+			{"acme/lib", "author"}:      false,
+		},
+		"repo:dukex/foo OR repo:acme/lib OR org:other": {
+			{"acme/lib", ""}:  true,
+			{"other/x", ""}:   true,
+			{"acme/core", ""}: false,
+		},
+	} {
+		f, err := ParseFilter(in)
+		if err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		for c, want := range cases {
+			if got := f.match(c[0], c[1], "pr"); got != want {
+				t.Errorf("%s with %v: %v", in, c, got)
+			}
+		}
+	}
+	for in, want := range map[string]string{
+		"OR repo:dukex/foo":                 `OR needs a qualifier on both sides`,
+		"repo:dukex/foo OR":                 `OR needs a qualifier on both sides`,
+		"repo:dukex/foo OR OR org:acme":     `OR needs a qualifier on both sides`,
+		"(repo:dukex/foo OR) org:acme":      `OR needs a qualifier on both sides`,
+		"(repo:dukex/foo OR org:acme":       `"(" has no closing ")"`,
+		"repo:dukex/foo OR org:acme)":       `")" has no opening "("`,
+		"org:acme ( )":                      `"()" holds no qualifier`,
+		"(org:acme OR repo:dukex/foo) or:x": `unknown qualifier "or:", hark knows repo, org, reason and is`,
+	} {
+		if _, err := ParseFilter(in); err == nil || err.Error() != want {
+			t.Errorf("%s: %v", in, err)
+		}
+	}
+}
+
+func TestOrKeepsMyOwnActionsThatMatchAnySide(t *testing.T) {
+	routes := baseRoutes()
+	routes["/users/dukex/events"] = `[` +
+		activity("2", "IssuesEvent", "closed", "2026-11-23T10:05:00Z", `"issue":{"url":"{{API}}/repos/dukex/foo/issues/3"}`) + `,` +
+		activity("1", "PullRequestEvent", "opened", "2026-11-23T10:02:00Z", `"pull_request":{"url":"{{API}}/repos/dukex/foo/pulls/12"}`) + `]`
+	routes["/repos/dukex/foo/pulls/12"] = `{"number":12,"title":"feat","html_url":"p12"}`
+	f := newFake(t, routes)
+	w := f.watcher()
+	w.Filter, _ = ParseFilter("reason:mention OR is:pr")
+
+	assertLines(t, w.poll(context.Background()), `2026-11-23T10:02:00Z github pr.opened dukex/foo#12 @dukex "feat" p12`)
 }

@@ -75,7 +75,7 @@ export const UserMessage = ({ children }: { readonly children: ReactNode }) => (
       padding: "14px 20px",
       borderRadius: 14,
       backgroundColor: "#141413",
-      fontSize: 24,
+      fontSize: 28,
       lineHeight: 1.35,
     }}
   >
@@ -98,7 +98,7 @@ export const ToolLine = ({
       alignItems: "center",
       gap: 12,
       fontFamily: "JetBrains Mono",
-      fontSize: 21,
+      fontSize: 26,
       color: "#C2C0B6",
     }}
   >
@@ -137,7 +137,7 @@ export const MonitorEvent = ({
       ...style,
     }}
   >
-    <span style={{ fontSize: 17, color: "#8F8D86" }}>Monitor · {command}</span>
-    <span style={{ fontSize: 21, color: "#F5F4EF" }}>{line}</span>
+    <span style={{ fontSize: 22, color: "#8F8D86" }}>Monitor · {command}</span>
+    <span style={{ fontSize: 28, color: "#F5F4EF" }}>{line}</span>
   </span>
 );

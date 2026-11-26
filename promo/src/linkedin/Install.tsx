@@ -88,7 +88,7 @@ export const Install = () => {
           }),
         }}
       >
-        Free, for Linux and macOS
+        Free and open source, for Linux and macOS
       </Interactive.Div>
     </AbsoluteFill>
   );

@@ -64,7 +64,7 @@ export const Converge = () => {
           />
         ))}
         <Wire
-          d="M 540 670 L 540 760"
+          d="M 540 670 L 540 740"
           color="#F2C94C"
           pulses={arrivals.map((at) => at + 0.1)}
           duration={0.4}
@@ -148,8 +148,8 @@ export const Converge = () => {
         hark
       </div>
 
-      <div style={{ position: "absolute", left: 80, top: 760 }}>
-        <ClaudeDesktop width={920} height={540}>
+      <div style={{ position: "absolute", left: 80, top: 740 }}>
+        <ClaudeDesktop width={920} height={580}>
           {services.map(({ name, event }, index) => (
             <span
               key={name}
@@ -160,7 +160,7 @@ export const Converge = () => {
                 borderLeft: "4px solid #D97757",
                 backgroundColor: "#1F1E1D",
                 fontFamily: "JetBrains Mono",
-                fontSize: 19,
+                fontSize: 26,
                 opacity: interpolate(
                   frame,
                   [(arrivals[index] + 0.5) * fps, (arrivals[index] + 0.7) * fps],
@@ -185,7 +185,7 @@ export const Converge = () => {
           <Burst key={name} x={540} y={560} at={arrivals[index]} color={color} />
         ))}
         {arrivals.map((at) => (
-          <Burst key={at} x={540} y={760} at={at + 0.5} color="#F2C94C" />
+          <Burst key={at} x={540} y={740} at={at + 0.5} color="#F2C94C" />
         ))}
       </svg>
     </AbsoluteFill>

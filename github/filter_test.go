@@ -82,7 +82,7 @@ func TestFilterAppliesToMyOwnActions(t *testing.T) {
 		t.Error("fetched an issue the filter drops")
 	}
 	w.Filter, _ = ParseFilter("reason:mention")
-	w.lastEvent = 0
+	w.seenEvents = nil
 	if events := w.poll(context.Background()); len(events) != 0 {
 		t.Errorf("reason: should only match notifications, got %v", lines(events))
 	}

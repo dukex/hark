@@ -11,6 +11,8 @@ $ hark github
 2026-11-23T10:10:00Z github pr.commented acme/lib#40 @frank watching "rebase?" https://github.com/acme/lib/pull/40#issuecomment-70
 ```
 
+![hark github printing a requested change, a failed CI run and a new comment, one line each](docs/demo.gif)
+
 ## Install
 
 ```

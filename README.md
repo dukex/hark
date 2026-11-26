@@ -179,7 +179,7 @@ Watch my Datadog, Discord, GitHub, Jira, Linear, Slack and Todoist activity with
 
 | Provider | RULES | Example |
 |----------|-------|---------|
-| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`, each negated with `-` (`-repo:acme/legacy`). Different qualifiers must all match, a repeated one matches any of its values. | `--filter 'org:acme -is:ci'` |
+| `github` | qualifiers from the github.com notifications search: `repo:owner/name`, `org:owner`, `reason:` (`mention`, `review-requested`, `author`..., with `-` or `_`), `is:issue`, `is:pr`, `is:ci`, each negated with `-` (`-repo:acme/legacy`). Different qualifiers must all match, a repeated one matches any of its values. `OR` matches either side and binds looser than a space, and parentheses group. | `--filter 'org:acme -is:ci'`, `--filter 'org:acme -repo:acme/noisy OR reason:author'` |
 | `jira` | JQL, added with AND to the issues you follow | `--filter 'project = PROJ AND priority = High'`, `--filter 'project != OPS'` |
 | `linear` | a Linear API `NotificationFilter` as JSON, where `type` is the notification type | `--filter '{"type":{"in":["issueMention","issueCommentMention"]}}'`, `--filter '{"type":{"nin":["issueNewComment"]}}'` |
 | `discord` | parameters of Discord's Search Guild Messages, as a query string, added to both searches in every server | `--filter 'author_type=-bot'`, `--filter 'channel_id=41771983423143938'` |

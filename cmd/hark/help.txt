@@ -232,12 +232,16 @@ OPTIONS
               -reason:, -is:.
               Different qualifiers must all match. A repeated qualifier
               matches any of its values, a repeated exclusion drops all of
-              them. Values ignore case.
+              them. Values ignore case. OR matches either side and binds
+              looser than a space, so 'a b OR c' means (a b) OR c, and
+              parentheses group qualifiers.
                 --filter 'org:acme is:pr'
                 --filter 'repo:dukex/hark repo:acme/lib'
                 --filter 'reason:review-requested reason:mention'
                 --filter '-repo:acme/legacy -org:other'   (everything else)
                 --filter 'org:acme -is:ci'
+                --filter 'org:acme -repo:acme/noisy OR reason:author'
+                --filter 'org:acme (is:pr OR reason:mention)'
               Threads the filter drops stay unread. reason: only matches
               notifications, never your own actions.
       jira    JQL, added with AND to the issues you are assigned to, reported

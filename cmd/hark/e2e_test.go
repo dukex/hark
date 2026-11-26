@@ -25,7 +25,7 @@ func (l *linesUntil) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func TestHarkGitHubEndToEnd(t *testing.T) {
+func fakeGitHub(t *testing.T) (string, string, *[]string) {
 	soon := time.Now().UTC().Add(time.Minute).Format(time.RFC3339)
 	routes := map[string]string{
 		"/user": `{"login":"dukex"}`,
@@ -58,13 +58,18 @@ func TestHarkGitHubEndToEnd(t *testing.T) {
 		}
 		_, _ = w.Write([]byte(strings.NewReplacer("SOON", soon, "API", api.URL).Replace(body)))
 	}))
-	defer api.Close()
+	t.Cleanup(api.Close)
+	return api.URL, soon, &marked
+}
+
+func TestHarkGitHubEndToEnd(t *testing.T) {
+	url, soon, marked := fakeGitHub(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	stdout := &linesUntil{want: 4, cancel: cancel}
 	var stderr bytes.Buffer
-	code := run(ctx, []string{"github"}, env(map[string]string{"GITHUB_TOKEN": "secret", "HARK_GITHUB_API": api.URL}), stdout, &stderr)
+	code := run(ctx, []string{"github"}, env(map[string]string{"GITHUB_TOKEN": "secret", "HARK_GITHUB_API": url}), stdout, &stderr)
 
 	want := strings.ReplaceAll(`SOON github issue.closed dukex/foo#3 @carol https://github.com/dukex/foo/issues/3
 SOON github pr.commented acme/lib#40 @frank watching "rebase?" https://github.com/acme/lib/pull/40#issuecomment-70
@@ -74,8 +79,22 @@ SOON github pr.opened dukex/foo#12 @dukex "feat: x" https://github.com/dukex/foo
 	if code != 0 || stdout.String() != want || stderr.Len() != 0 {
 		t.Errorf("exit %d\nstderr: %s\ngot:\n%s\nwant:\n%s", code, stderr.String(), stdout.String(), want)
 	}
-	if strings.Join(marked, ",") != "1,2" {
+	if strings.Join(*marked, ",") != "1,2" {
 		t.Errorf("marked %v, want both threads read", marked)
+	}
+}
+
+func TestHarkGitHubFilterWithOrEndToEnd(t *testing.T) {
+	url, soon, marked := fakeGitHub(t)
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"github", "--filter", "(org:acme -reason:subscribed) OR reason:author", "--exit-on-event"}, env(map[string]string{"GITHUB_TOKEN": "secret", "HARK_GITHUB_API": url}), &stdout, &stderr)
+
+	want := soon + " github issue.closed dukex/foo#3 @carol https://github.com/dukex/foo/issues/3\n"
+	if code != 0 || stdout.String() != want || stderr.Len() != 0 {
+		t.Errorf("exit %d\nstderr: %s\ngot:\n%s\nwant:\n%s", code, stderr.String(), stdout.String(), want)
+	}
+	if strings.Join(*marked, ",") != "1" {
+		t.Errorf("marked %v, want the subscribed thread left unread", *marked)
 	}
 }
 

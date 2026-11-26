@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -84,8 +85,8 @@ func TestFilterIsPassedToTheProvider(t *testing.T) {
 func TestConstructorsSetFilter(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	gh, _ := newGitHub(env(map[string]string{"GITHUB_TOKEN": "t"}), options{Filter: "org:acme is:pr"})
-	if f := gh.(*github.Watcher).Filter; len(f["org"]) != 1 || f["is"][0] != "pr" {
-		t.Errorf("github filter %v", f)
+	if want, _ := github.ParseFilter("org:acme is:pr"); !reflect.DeepEqual(gh.(*github.Watcher).Filter, want) {
+		t.Errorf("github filter %v", gh.(*github.Watcher).Filter)
 	}
 	jr, _ := newJira(env(map[string]string{"JIRA_URL": "u", "JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"}), options{Filter: "project = PROJ"})
 	td, _ := newTodoist(env(map[string]string{"TODOIST_API_TOKEN": "t"}), options{Filter: "#Work"})

@@ -111,13 +111,13 @@ export const Flow = () => {
               display: "flex",
               alignItems: "center",
               gap: 14,
-              fontSize: 24,
+              fontSize: 28,
               color: "#9E9E9E",
             }}
           >
             <Logo size={32} />$ hark github
           </span>
-          <span style={{ fontSize: 28, color: "#FFFFFF" }}>
+          <span style={{ fontSize: 30, color: "#FFFFFF" }}>
             <Typed
               text={line}
               count={Math.round(

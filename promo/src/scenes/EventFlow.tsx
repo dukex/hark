@@ -58,18 +58,19 @@ export const EventFlow = ({
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
             easing: Easing.bezier(0.65, 0, 0.35, 1),
-            output: "perceptual-scale",
+            output: "perceptual-scale"
           }),
           translate: interpolate(
             frame,
-            [4.4 * fps, 5.2 * fps],
-            ["0px 0px", "-540px 0px"],
+            [4.4 * fps, 5.2 * fps, 282],
+            ["0px 0px", "-540px 0px", "-546.2px 0px"],
             {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.65, 0, 0.35, 1),
-            },
-          ),
+              easing: [Easing.bezier(0.65, 0, 0.35, 1), Easing.linear],
+              outputType: "translate"
+            }
+          )
         }}
       >
         <svg

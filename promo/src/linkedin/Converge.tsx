@@ -2,22 +2,26 @@ import {
   AbsoluteFill,
   Interactive,
   interpolate,
+  interpolateColors,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import { Logo } from "../Logo";
 import { ClaudeDesktop } from "../mockups/ClaudeDesktop";
+import { Burst, GlowFilter, gridBackground, useHitGlow, Wire } from "./Circuit";
 
 const services = [
-  { name: "GitHub", color: "#24292F", left: 80, top: 330, event: "hark github · ci.failed" },
-  { name: "Slack", color: "#4A154B", left: 310, top: 330, event: "hark slack · slack.dm" },
-  { name: "Discord", color: "#5865F2", left: 540, top: 330, event: "hark discord · discord.mentioned" },
-  { name: "Jira", color: "#0C66E4", left: 770, top: 330, event: "hark jira · jira.assigned" },
-  { name: "Linear", color: "#5E6AD2", left: 195, top: 414, event: "hark linear · linear.assigned" },
-  { name: "Datadog", color: "#632CA6", left: 425, top: 414, event: "hark datadog · datadog.no_data" },
-  { name: "Todoist", color: "#DC4C3E", left: 655, top: 414, event: "hark todoist · task.due" },
+  { name: "GitHub", color: "#24292F", glow: "#E6EDF3", left: 80, top: 330, event: "hark github · ci.failed" },
+  { name: "Slack", color: "#4A154B", glow: "#E01E5A", left: 310, top: 330, event: "hark slack · slack.dm" },
+  { name: "Discord", color: "#5865F2", glow: "#7983F5", left: 540, top: 330, event: "hark discord · discord.mentioned" },
+  { name: "Jira", color: "#0C66E4", glow: "#579DFF", left: 770, top: 330, event: "hark jira · jira.assigned" },
+  { name: "Linear", color: "#5E6AD2", glow: "#8B93FF", left: 195, top: 414, event: "hark linear · linear.assigned" },
+  { name: "Datadog", color: "#632CA6", glow: "#A77EF0", left: 425, top: 414, event: "hark datadog · datadog.no_data" },
+  { name: "Todoist", color: "#DC4C3E", glow: "#E44332", left: 655, top: 414, event: "hark todoist · task.due" },
 ];
 
+const startOf = (index: number) => 0.5 + index * 0.45;
+const arrivals = services.map((_, index) => startOf(index) + 0.7);
 const clamp = {
   extrapolateLeft: "clamp",
   extrapolateRight: "clamp",
@@ -26,10 +30,10 @@ const clamp = {
 export const Converge = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const startOf = (index: number) => (0.5 + index * 0.45) * fps;
+  const glow = useHitGlow(arrivals);
 
   return (
-    <AbsoluteFill style={{ fontFamily: "Inter" }}>
+    <AbsoluteFill style={{ fontFamily: "Inter", ...gridBackground }}>
       <Interactive.Div
         name="Headline"
         style={{
@@ -49,30 +53,25 @@ export const Converge = () => {
       </Interactive.Div>
 
       <svg width={1080} height={1350} style={{ position: "absolute" }}>
-        {services.map(({ name, left, top }) => (
-          <line
+        <GlowFilter />
+        {services.map(({ name, glow: color, left, top }, index) => (
+          <Wire
             key={name}
-            x1={left + 105}
-            y1={top + 64}
-            x2={540}
-            y2={560}
-            stroke="#333333"
-            strokeWidth={3}
-            strokeDasharray="10 8"
+            d={`M ${left + 105} ${top + 64} C ${left + 105} ${top + 150}, 540 ${470}, 540 560`}
+            color={color}
+            pulses={[startOf(index)]}
+            duration={0.7}
           />
         ))}
-        <line
-          x1={540}
-          y1={670}
-          x2={540}
-          y2={760}
-          stroke="#333333"
-          strokeWidth={3}
-          strokeDasharray="10 8"
+        <Wire
+          d="M 540 670 L 540 760"
+          color="#F2C94C"
+          pulses={arrivals.map((at) => at + 0.1)}
+          duration={0.4}
         />
       </svg>
 
-      {services.map(({ name, color, left, top }) => (
+      {services.map(({ name, color, glow: flash, left, top }, index) => (
         <div
           key={name}
           style={{
@@ -87,7 +86,26 @@ export const Converge = () => {
             padding: "0 16px",
             borderRadius: 14,
             backgroundColor: "#1A1A1A",
-            border: "2px solid #333333",
+            border: "2px solid",
+            borderColor: interpolateColors(
+              frame,
+              [
+                startOf(index) * fps,
+                (startOf(index) + 0.1) * fps,
+                (startOf(index) + 0.7) * fps,
+              ],
+              ["#333333", flash, "#333333"],
+            ),
+            boxShadow: `0 0 ${interpolate(
+              frame,
+              [
+                startOf(index) * fps,
+                (startOf(index) + 0.1) * fps,
+                (startOf(index) + 0.7) * fps,
+              ],
+              [0, 28, 0],
+              clamp,
+            )}px ${flash}`,
             fontSize: 26,
             fontWeight: 600,
             color: "#FFFFFF",
@@ -119,6 +137,8 @@ export const Converge = () => {
           borderRadius: 16,
           backgroundColor: "#1A1A1A",
           border: "2px solid #F2C94C",
+          boxShadow: `0 0 ${16 + 48 * glow}px rgba(242, 201, 76, ${0.2 + 0.6 * glow})`,
+          scale: 1 + 0.04 * glow,
           fontSize: 56,
           fontWeight: 700,
           color: "#FFFFFF",
@@ -143,7 +163,7 @@ export const Converge = () => {
                 fontSize: 19,
                 opacity: interpolate(
                   frame,
-                  [startOf(index) + 1.2 * fps, startOf(index) + 1.4 * fps],
+                  [(arrivals[index] + 0.5) * fps, (arrivals[index] + 0.7) * fps],
                   [0, 1],
                   clamp,
                 ),
@@ -155,71 +175,19 @@ export const Converge = () => {
         </ClaudeDesktop>
       </div>
 
-      {services.map(({ name, left, top }, index) => (
-        <div key={name}>
-          <div
-            style={{
-              position: "absolute",
-              width: 20,
-              height: 20,
-              borderRadius: 9999,
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 0 20px 6px rgba(255, 255, 255, 0.45)",
-              left: interpolate(
-                frame,
-                [startOf(index), startOf(index) + 0.7 * fps],
-                [left + 95, 530],
-                clamp,
-              ),
-              top: interpolate(
-                frame,
-                [startOf(index), startOf(index) + 0.7 * fps],
-                [top + 54, 550],
-                clamp,
-              ),
-              opacity: interpolate(
-                frame,
-                [
-                  startOf(index),
-                  startOf(index) + 0.1 * fps,
-                  startOf(index) + 0.6 * fps,
-                  startOf(index) + 0.7 * fps,
-                ],
-                [0, 1, 1, 0],
-                clamp,
-              ),
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: 530,
-              width: 20,
-              height: 20,
-              borderRadius: 9999,
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 0 20px 6px rgba(255, 255, 255, 0.45)",
-              top: interpolate(
-                frame,
-                [startOf(index) + 0.8 * fps, startOf(index) + 1.2 * fps],
-                [660, 750],
-                clamp,
-              ),
-              opacity: interpolate(
-                frame,
-                [
-                  startOf(index) + 0.8 * fps,
-                  startOf(index) + 0.9 * fps,
-                  startOf(index) + 1.1 * fps,
-                  startOf(index) + 1.2 * fps,
-                ],
-                [0, 1, 1, 0],
-                clamp,
-              ),
-            }}
-          />
-        </div>
-      ))}
+      <svg
+        width={1080}
+        height={1350}
+        style={{ position: "absolute", pointerEvents: "none" }}
+      >
+        <GlowFilter />
+        {services.map(({ name, glow: color }, index) => (
+          <Burst key={name} x={540} y={560} at={arrivals[index]} color={color} />
+        ))}
+        {arrivals.map((at) => (
+          <Burst key={at} x={540} y={760} at={at + 0.5} color="#F2C94C" />
+        ))}
+      </svg>
     </AbsoluteFill>
   );
 };

@@ -16,6 +16,7 @@ import {
 } from "../mockups/ClaudeDesktop";
 import { GitHubPR } from "../mockups/providers";
 import { Typed } from "../Typed";
+import { Burst, GlowFilter, gridBackground, useHitGlow, Wire } from "./Circuit";
 
 const clamp = {
   extrapolateLeft: "clamp",
@@ -29,9 +30,10 @@ const reply =
 export const Flow = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const glow = useHitGlow([2.3]);
 
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={gridBackground}>
       <Interactive.Div
         name="Camera"
         style={{
@@ -54,23 +56,18 @@ export const Flow = () => {
           height={900}
           style={{ position: "absolute", left: 0, top: 0 }}
         >
-          <line
-            x1={540}
-            y1={500}
-            x2={540}
-            y2={600}
-            stroke="#444444"
-            strokeWidth={4}
-            strokeDasharray="10 8"
+          <GlowFilter />
+          <Wire
+            d="M 540 500 L 540 600"
+            color="#E6EDF3"
+            pulses={[1.6]}
+            duration={0.7}
           />
-          <line
-            x1={540}
-            y1={740}
-            x2={540}
-            y2={840}
-            stroke="#444444"
-            strokeWidth={4}
-            strokeDasharray="10 8"
+          <Wire
+            d="M 540 740 L 540 840"
+            color="#F2C94C"
+            pulses={[3.1]}
+            duration={0.7}
           />
         </svg>
 
@@ -99,6 +96,7 @@ export const Flow = () => {
             padding: "0 28px",
             borderRadius: 12,
             backgroundColor: "#0D0D0D",
+            boxShadow: `0 0 ${12 + 48 * glow}px rgba(242, 201, 76, ${0.1 + 0.6 * glow})`,
             border: "2px solid",
             borderColor: interpolateColors(
               frame,
@@ -181,38 +179,15 @@ export const Flow = () => {
           </ClaudeDesktop>
         </div>
 
-        <div
-          style={{
-            position: "absolute",
-            left: 528,
-            width: 24,
-            height: 24,
-            borderRadius: 9999,
-            backgroundColor: "#FFFFFF",
-            boxShadow: "0 0 24px 8px rgba(255, 255, 255, 0.45)",
-            top: interpolate(
-              frame,
-              [1.6 * fps, 2.3 * fps, 3.1 * fps, 3.8 * fps],
-              [490, 590, 730, 830],
-              clamp,
-            ),
-            opacity: interpolate(
-              frame,
-              [
-                1.6 * fps,
-                1.7 * fps,
-                2.2 * fps,
-                2.3 * fps,
-                3.1 * fps,
-                3.2 * fps,
-                3.7 * fps,
-                3.8 * fps,
-              ],
-              [0, 1, 1, 0, 0, 1, 1, 0],
-              clamp,
-            ),
-          }}
-        />
+        <svg
+          width={1080}
+          height={900}
+          style={{ position: "absolute", left: 0, top: 0 }}
+        >
+          <GlowFilter />
+          <Burst x={540} y={600} at={2.3} color="#E6EDF3" />
+          <Burst x={540} y={840} at={3.8} color="#F2C94C" />
+        </svg>
       </Interactive.Div>
     </AbsoluteFill>
   );

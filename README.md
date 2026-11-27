@@ -223,7 +223,7 @@ Known limits:
 | `issue.commented`, `pr.commented` | someone comments |
 | `issue.closed`, `pr.closed`, `pr.merged` | someone, or you, closes or merges |
 | `pr.opened` | you open a PR |
-| `pr.reviewed`, `pr.approved`, `pr.changes_requested` | someone reviews your PR, or one you watch; the text is the review body, or its first inline comment, plus the inline comment count |
+| `pr.reviewed`, `pr.approved`, `pr.changes_requested` | someone reviews your PR, or one you watch; the text is the review body, or its first inline comment, plus the inline comment count. `pr.approved` and `pr.changes_requested` also come when you approve or request changes, with the PR title as text |
 | `issue.updated`, `pr.updated` | other thread activity, with the notification reason as text |
 | `ci.failed`, `ci.succeeded`, `ci.cancelled`, `ci.skipped` | a workflow run you get notified about finished; the text is GitHub's title, with workflow and branch |
 | `ci.approval_requested` | someone asked you to approve a deployment |

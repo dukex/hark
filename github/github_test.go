@@ -330,6 +330,40 @@ func TestMyOwnActions(t *testing.T) {
 	assertLines(t, w.poll(context.Background()))
 }
 
+func TestMyMergesAndReviewsAsGitHubSendsThemNow(t *testing.T) {
+	pr := func(n string) string {
+		return `"number":` + n + `,"pull_request":{"number":` + n + `,"url":"{{API}}/repos/dukex/foo/pulls/` + n + `"}`
+	}
+	review := func(state, n string) string {
+		return `"review":{"id":1,"state":"` + state + `","body":null,"html_url":"https://github.com/dukex/foo/pull/` + n + `#pullrequestreview-1"},` + pr(n)
+	}
+	routes := baseRoutes()
+	routes["/users/dukex/events"] = `[` +
+		activity("28000000002", "PushEvent", "", "2026-11-23T09:30:00Z", `"ref":"main"`) + `,` +
+		activity("21000000006", "PullRequestReviewEvent", "dismissed", "2026-11-23T10:06:00Z", review("dismissed", "14")) + `,` +
+		activity("21000000005", "PullRequestReviewEvent", "created", "2026-11-23T10:05:00Z", review("commented", "14")) + `,` +
+		activity("21000000004", "PullRequestReviewEvent", "created", "2026-11-23T10:04:00Z", review("changes_requested", "14")) + `,` +
+		activity("28000000001", "PushEvent", "", "2026-11-23T10:03:30Z", `"ref":"main"`) + `,` +
+		activity("21000000003", "PullRequestReviewEvent", "created", "2026-11-23T10:03:00Z", review("approved", "13")) + `,` +
+		activity("21000000002", "PullRequestEvent", "merged", "2026-11-23T10:02:00Z", pr("12")) + `]`
+	routes["/repos/dukex/foo/pulls/12"] = `{"number":12,"title":"feat","merged":true,"html_url":"https://github.com/dukex/foo/pull/12"}`
+	routes["/repos/dukex/foo/pulls/13"] = `{"number":13,"title":"fix","html_url":"https://github.com/dukex/foo/pull/13"}`
+	routes["/repos/dukex/foo/pulls/14"] = `{"number":14,"title":"wip","html_url":"https://github.com/dukex/foo/pull/14"}`
+	f := newFake(t, routes)
+	w := f.watcher()
+
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T10:02:00Z github pr.merged dukex/foo#12 @dukex "feat" https://github.com/dukex/foo/pull/12`,
+		`2026-11-23T10:03:00Z github pr.approved dukex/foo#13 @dukex "fix" https://github.com/dukex/foo/pull/13#pullrequestreview-1`,
+		`2026-11-23T10:04:00Z github pr.changes_requested dukex/foo#14 @dukex "wip" https://github.com/dukex/foo/pull/14#pullrequestreview-1`)
+
+	f.set("/users/dukex/events", `[`+
+		activity("21000000007", "PullRequestEvent", "merged", "2026-11-23T10:07:00Z", pr("13"))+`,`+
+		strings.TrimPrefix(routes["/users/dukex/events"], `[`))
+	assertLines(t, w.poll(context.Background()),
+		`2026-11-23T10:07:00Z github pr.merged dukex/foo#13 @dukex "fix" https://github.com/dukex/foo/pull/13`)
+}
+
 func TestOwnEventItemUnavailableBecomesErrorEvent(t *testing.T) {
 	routes := baseRoutes()
 	routes["/users/dukex/events"] = `[` + activity("1", "PullRequestEvent", "opened", "2026-11-23T10:02:00Z", `"pull_request":{"url":"{{API}}/repos/dukex/foo/pulls/404"}`) + `]`

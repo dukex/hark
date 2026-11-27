@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,9 +26,9 @@ type Watcher struct {
 	Since    time.Time
 	Filter   Filter
 
-	me        string
-	started   time.Time
-	lastEvent int64
+	me         string
+	started    time.Time
+	seenEvents map[string]bool
 }
 
 func New(api, token string) *Watcher {
@@ -113,6 +112,10 @@ type ownEvent struct {
 		Action      string `json:"action"`
 		PullRequest ref    `json:"pull_request"`
 		Issue       ref    `json:"issue"`
+		Review      struct {
+			State   string `json:"state"`
+			HTMLURL string `json:"html_url"`
+		} `json:"review"`
 	} `json:"payload"`
 }
 
@@ -137,24 +140,28 @@ func (w *Watcher) notifications(ctx context.Context) []hark.Event {
 
 func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 	var list []ownEvent
-	if err := w.do(ctx, http.MethodGet, w.API+"/users/"+w.me+"/events", &list); err != nil {
+	if err := w.do(ctx, http.MethodGet, w.API+"/users/"+w.me+"/events?per_page=100", &list); err != nil {
 		return []hark.Event{w.failure(err)}
 	}
 	var events []hark.Event
+	seen := map[string]bool{}
 	for i := len(list) - 1; i >= 0; i-- {
 		o := list[i]
-		id, _ := strconv.ParseInt(o.ID, 10, 64)
-		if id <= w.lastEvent || o.CreatedAt.Before(w.since(0)) {
+		seen[o.ID] = true
+		if w.seenEvents[o.ID] || o.CreatedAt.Before(w.since(0)) {
 			continue
 		}
-		w.lastEvent = id
 		p := o.Payload
-		kind, target := "", p.PullRequest
+		kind, target, link := "", p.PullRequest, ""
 		switch {
 		case o.Type == "PullRequestEvent" && p.Action == "opened":
 			kind = "pr.opened"
 		case o.Type == "PullRequestEvent" && p.Action == "closed":
 			kind = "pr.closed"
+		case o.Type == "PullRequestEvent" && p.Action == "merged":
+			kind = "pr.merged"
+		case o.Type == "PullRequestReviewEvent" && p.Action == "created" && reviewKinds[strings.ToUpper(p.Review.State)] != "":
+			kind, link = reviewKinds[strings.ToUpper(p.Review.State)], p.Review.HTMLURL
 		case o.Type == "IssuesEvent" && p.Action == "closed":
 			kind, target = "issue.closed", p.Issue
 		default:
@@ -173,9 +180,10 @@ func (w *Watcher) ownEvents(ctx context.Context) []hark.Event {
 		}
 		events = append(events, hark.Event{
 			Time: o.CreatedAt, Provider: "github", Kind: kind, Repo: o.Repo.Name,
-			Number: s.Number, Actor: w.me, Text: s.Title, URL: s.HTMLURL,
+			Number: s.Number, Actor: w.me, Text: s.Title, URL: cmp.Or(link, s.HTMLURL),
 		})
 	}
+	w.seenEvents = seen
 	return events
 }
 

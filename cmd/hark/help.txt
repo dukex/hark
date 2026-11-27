@@ -104,6 +104,8 @@ KINDS
     pr.reviewed, pr.approved, pr.changes_requested
         someone else reviewed a PR. TEXT is the review body, or its first
         inline comment, followed by "(N inline comments)" when there are any.
+        pr.approved and pr.changes_requested also come when you approved or
+        requested changes, with @you and the title as TEXT.
     issue.closed, pr.closed, pr.merged
         someone, or you, closed or merged an issue or PR. TEXT, when present,
         is the title.
@@ -199,9 +201,10 @@ KINDS
         the same error only once until a different line comes out.
 
   Your own actions: github reports the ones you make (pr.opened, closing,
-  merging) from your public activity, which GitHub can delay by up to a few
-  hours. jira, slack and discord never report them. linear reports what
-  reaches your Linear inbox. todoist reports everyone's, including yours.
+  merging, approving, requesting changes) from your activity feed, which
+  GitHub can delay by up to a few hours. jira, slack and discord never
+  report them. linear reports what reaches your Linear inbox. todoist
+  reports everyone's, including yours.
   datadog reports monitors, not people.
 
 OPTIONS
@@ -295,9 +298,10 @@ OPTIONS
       polling and exits on the next event.
       For agents that have no monitor but are woken when a background command
       exits, such as Copilot CLI.
-      github: your own actions (pr.opened, closing, merging) made between the
-      exit and the next start are only reported if the next start passes
-      --since TIME, the first field of the last event line.
+      github: your own actions (pr.opened, closing, merging, approving,
+      requesting changes) made between the exit and the next start are only
+      reported if the next start passes --since TIME, the first field of the
+      last event line.
 
 COMMANDS
   hark login <provider>
